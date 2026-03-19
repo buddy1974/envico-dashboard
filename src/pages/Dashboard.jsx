@@ -227,8 +227,12 @@ export default function Dashboard({ onLogout }) {
     try {
       const res = await api.get('/api/tasks/summary');
       setSummary(res.data);
-    } catch {
-      // non-critical — silently ignore
+    } catch (err) {
+      if (err.response?.status === 401) {
+        localStorage.removeItem('token');
+        onLogout();
+      }
+      // other errors: non-critical, silently ignore
     }
   }
 
