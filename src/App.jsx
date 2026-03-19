@@ -3,7 +3,8 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 
 export default function App() {
-  const [authed, setAuthed] = useState(!!localStorage.getItem('token'));
+  localStorage.removeItem('token');
+  const [authed, setAuthed] = useState(false);
 
   return authed
     ? <Dashboard onLogout={() => setAuthed(false)} />
