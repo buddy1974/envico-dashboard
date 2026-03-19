@@ -142,7 +142,7 @@ function SummaryCards({ summary }) {
     { label: 'Total Tasks', value: summary.total ?? '—', color: '#1a1a2e' },
     { label: 'Critical', value: summary.critical ?? '—', color: '#dc2626' },
     { label: 'Pending', value: summary.pending ?? '—', color: '#e67e22' },
-    { label: 'In Progress', value: summary.in_progress ?? '—', color: '#2980b9' },
+    { label: 'In Progress', value: summary.inProgress ?? summary.in_progress ?? '—', color: '#2980b9' },
   ];
   return (
     <div style={cardStyles.grid}>
@@ -226,7 +226,7 @@ export default function Dashboard({ onLogout }) {
   async function fetchSummary() {
     try {
       const res = await api.get('/api/tasks/summary');
-      setSummary(res.data);
+      setSummary(res.data.summary ?? res.data);
     } catch (err) {
       if (err.response?.status === 401) {
         localStorage.removeItem('token');
