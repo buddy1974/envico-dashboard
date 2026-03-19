@@ -16,7 +16,15 @@ export default function Login({ onLogin }) {
       localStorage.setItem('token', res.data.token);
       onLogin();
     } catch (err) {
-      setError(err.response?.data?.message ?? 'Login failed');
+      console.error('[Login] error:', err);
+      console.error('[Login] status:', err.response?.status);
+      console.error('[Login] data:', err.response?.data);
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        (err.response ? `HTTP ${err.response.status}` : err.message) ||
+        'Login failed';
+      setError(msg);
     } finally {
       setLoading(false);
     }
