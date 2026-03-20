@@ -14,6 +14,7 @@ import Training from './pages/Training';
 import Recruitment from './pages/Recruitment';
 import Compliance from './pages/Compliance';
 import StaffDocs from './pages/StaffDocs';
+import Users from './pages/Users';
 import Layout from './components/Layout';
 
 function ProtectedRoutes({ onLogout }) {
@@ -33,6 +34,7 @@ function ProtectedRoutes({ onLogout }) {
         <Route path="/recruitment" element={<Recruitment />} />
         <Route path="/compliance" element={<Compliance />} />
         <Route path="/staff-docs" element={<StaffDocs />} />
+        <Route path="/users" element={<Users />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

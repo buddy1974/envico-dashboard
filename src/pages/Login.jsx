@@ -14,6 +14,7 @@ export default function Login({ onLogin }) {
     try {
       const res = await api.post('/api/auth/login', { email, password });
       localStorage.setItem('token', res.data.token);
+      if (res.data.user) localStorage.setItem('user', JSON.stringify(res.data.user));
       onLogin();
     } catch (err) {
       console.error('[Login] error:', err);

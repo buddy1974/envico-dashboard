@@ -15,11 +15,17 @@ const NAV_ITEMS = [
   { to: '/staff-docs', label: 'Staff Docs', icon: '📄' },
 ];
 
+function getCurrentUserRole() {
+  try { return JSON.parse(localStorage.getItem('user') || '{}').role ?? null; } catch { return null; }
+}
+
 export default function Layout({ children, onLogout }) {
   const navigate = useNavigate();
+  const userRole = getCurrentUserRole();
 
   function logout() {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     onLogout();
     navigate('/login');
   }
@@ -63,6 +69,20 @@ export default function Layout({ children, onLogout }) {
             </NavLink>
           ))}
         </nav>
+
+        {userRole === 'ADMIN' && (
+          <NavLink
+            to="/users"
+            style={({ isActive }) => ({
+              ...styles.navLink,
+              ...styles.adminLink,
+              ...(isActive ? styles.adminLinkActive : {}),
+            })}
+          >
+            <span style={styles.navIcon}>👤</span>
+            Users
+          </NavLink>
+        )}
 
         <button style={styles.logoutBtn} onClick={logout}>
           <span>↩</span> Logout
@@ -157,6 +177,19 @@ const styles = {
     fontSize: '1rem',
     width: '20px',
     textAlign: 'center',
+  },
+  adminLink: {
+    margin: '0.5rem 0.75rem 0.25rem',
+    background: 'rgba(220, 38, 38, 0.1)',
+    color: '#fca5a5',
+    border: '1px solid rgba(220, 38, 38, 0.25)',
+    fontWeight: 600,
+    borderRadius: '6px',
+  },
+  adminLinkActive: {
+    background: 'rgba(220, 38, 38, 0.25)',
+    color: '#ffffff',
+    border: '1px solid rgba(220, 38, 38, 0.5)',
   },
   logoutBtn: {
     display: 'flex',
