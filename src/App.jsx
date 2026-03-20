@@ -9,6 +9,7 @@ import CarePlans from './pages/CarePlans';
 import Invoices from './pages/Invoices';
 import Payroll from './pages/Payroll';
 import Finance from './pages/Finance';
+import Assistant from './pages/Assistant';
 import Training from './pages/Training';
 import Recruitment from './pages/Recruitment';
 import Compliance from './pages/Compliance';
@@ -27,6 +28,7 @@ function ProtectedRoutes({ onLogout }) {
         <Route path="/invoices" element={<Invoices />} />
         <Route path="/payroll" element={<Payroll />} />
         <Route path="/finance" element={<Finance />} />
+        <Route path="/assistant" element={<Assistant />} />
         <Route path="/training" element={<Training />} />
         <Route path="/recruitment" element={<Recruitment />} />
         <Route path="/compliance" element={<Compliance />} />

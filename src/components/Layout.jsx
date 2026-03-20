@@ -33,6 +33,21 @@ export default function Layout({ children, onLogout }) {
         </div>
 
         <nav style={styles.nav}>
+          {/* AI Assistant — pinned at top, accent colour */}
+          <NavLink
+            to="/assistant"
+            style={({ isActive }) => ({
+              ...styles.navLink,
+              ...styles.assistantLink,
+              ...(isActive ? styles.assistantLinkActive : {}),
+            })}
+          >
+            <span style={styles.navIcon}>🤖</span>
+            AI Assistant
+          </NavLink>
+
+          <div style={styles.divider} />
+
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
@@ -75,6 +90,7 @@ const styles = {
     flexDirection: 'column',
     padding: '0',
     flexShrink: 0,
+    overflowY: 'auto',
   },
   logo: {
     display: 'flex',
@@ -100,25 +116,42 @@ const styles = {
   nav: {
     display: 'flex',
     flexDirection: 'column',
-    padding: '1rem 0.75rem',
-    gap: '0.25rem',
+    padding: '0.75rem 0.75rem',
+    gap: '0.2rem',
     flex: 1,
   },
   navLink: {
     display: 'flex',
     alignItems: 'center',
     gap: '0.6rem',
-    padding: '0.6rem 0.75rem',
+    padding: '0.55rem 0.75rem',
     borderRadius: '6px',
     color: '#b0b0cc',
     textDecoration: 'none',
-    fontSize: '0.9rem',
+    fontSize: '0.88rem',
     fontWeight: 500,
     transition: 'background 0.15s, color 0.15s',
   },
   navLinkActive: {
     background: '#2d2d4e',
     color: '#ffffff',
+  },
+  assistantLink: {
+    background: 'rgba(124, 58, 237, 0.15)',
+    color: '#c4b5fd',
+    border: '1px solid rgba(124, 58, 237, 0.3)',
+    fontWeight: 600,
+    marginBottom: '0.25rem',
+  },
+  assistantLinkActive: {
+    background: 'rgba(124, 58, 237, 0.35)',
+    color: '#ffffff',
+    border: '1px solid rgba(124, 58, 237, 0.6)',
+  },
+  divider: {
+    height: '1px',
+    background: '#2d2d4e',
+    margin: '0.35rem 0.25rem 0.5rem',
   },
   navIcon: {
     fontSize: '1rem',
@@ -138,10 +171,12 @@ const styles = {
     cursor: 'pointer',
     fontSize: '0.85rem',
     textAlign: 'left',
+    flexShrink: 0,
   },
   content: {
     flex: 1,
     padding: '2rem',
     overflowY: 'auto',
+    minWidth: 0,
   },
 };
