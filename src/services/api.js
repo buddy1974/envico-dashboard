@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://envico-backend-production.up.railway.app',
+  baseURL: 'https://envico-backend.onrender.com',
 });
 
 api.interceptors.request.use((config) => {

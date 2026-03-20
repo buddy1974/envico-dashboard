@@ -4,7 +4,7 @@ const subscribers = new Set();
 export function connectSocket() {
   if (ws) return;
 
-  ws = new WebSocket('wss://envico-backend-production.up.railway.app');
+  ws = new WebSocket('wss://envico-backend.onrender.com');
 
   ws.onmessage = (e) => {
     try {
