@@ -39,7 +39,20 @@ export default function Layout({ children, onLogout }) {
         </div>
 
         <nav style={styles.nav}>
-          {/* AI Assistant — pinned at top, accent colour */}
+          {/* CEO Office — pinned at top, gold accent */}
+          <NavLink
+            to="/ceo-office"
+            style={({ isActive }) => ({
+              ...styles.navLink,
+              ...styles.ceoLink,
+              ...(isActive ? styles.ceoLinkActive : {}),
+            })}
+          >
+            <span style={styles.navIcon}>👔</span>
+            CEO Office
+          </NavLink>
+
+          {/* AI Assistant — accent colour */}
           <NavLink
             to="/assistant"
             style={({ isActive }) => ({
@@ -155,6 +168,18 @@ const styles = {
   navLinkActive: {
     background: '#2d2d4e',
     color: '#ffffff',
+  },
+  ceoLink: {
+    background: 'rgba(217, 119, 6, 0.15)',
+    color: '#fcd34d',
+    border: '1px solid rgba(217, 119, 6, 0.35)',
+    fontWeight: 700,
+    marginBottom: '0.2rem',
+  },
+  ceoLinkActive: {
+    background: 'rgba(217, 119, 6, 0.35)',
+    color: '#ffffff',
+    border: '1px solid rgba(217, 119, 6, 0.65)',
   },
   assistantLink: {
     background: 'rgba(124, 58, 237, 0.15)',
