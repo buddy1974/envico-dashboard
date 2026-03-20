@@ -6,6 +6,9 @@ import ServiceUsers from './pages/ServiceUsers';
 import Incidents from './pages/Incidents';
 import Medications from './pages/Medications';
 import CarePlans from './pages/CarePlans';
+import Invoices from './pages/Invoices';
+import Payroll from './pages/Payroll';
+import Finance from './pages/Finance';
 import Layout from './components/Layout';
 
 function ProtectedRoutes({ onLogout }) {
@@ -17,6 +20,9 @@ function ProtectedRoutes({ onLogout }) {
         <Route path="/incidents" element={<Incidents />} />
         <Route path="/medications" element={<Medications />} />
         <Route path="/care-plans" element={<CarePlans />} />
+        <Route path="/invoices" element={<Invoices />} />
+        <Route path="/payroll" element={<Payroll />} />
+        <Route path="/finance" element={<Finance />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

@@ -6,6 +6,9 @@ const NAV_ITEMS = [
   { to: '/incidents', label: 'Incidents', icon: '🚨' },
   { to: '/medications', label: 'Medications', icon: '💊' },
   { to: '/care-plans', label: 'Care Plans', icon: '📋' },
+  { to: '/invoices', label: 'Invoices', icon: '💰' },
+  { to: '/payroll', label: 'Payroll', icon: '🧾' },
+  { to: '/finance', label: 'Finance', icon: '📊' },
 ];
 
 export default function Layout({ children, onLogout }) {
