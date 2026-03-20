@@ -21,11 +21,8 @@ export default function Layout({ children, onLogout }) {
     <div style={styles.root}>
       <aside style={styles.sidebar}>
         <div style={styles.logo}>
-          <span style={styles.logoIcon}>🌿</span>
-          <div>
-            <div style={styles.logoName}>Envico</div>
-            <div style={styles.logoSub}>CareOS</div>
-          </div>
+          <img src="/Enivco-logo.png" alt="Envico" style={styles.logoImg} />
+          <div style={styles.logoSub}>CareOS</div>
         </div>
 
         <nav style={styles.nav}>
@@ -74,25 +71,24 @@ const styles = {
   },
   logo: {
     display: 'flex',
-    alignItems: 'center',
-    gap: '0.75rem',
-    padding: '1.5rem 1.25rem 1.25rem',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: '0.25rem',
+    padding: '1.25rem 1.25rem 1rem',
     borderBottom: '1px solid #2d2d4e',
   },
-  logoIcon: {
-    fontSize: '1.8rem',
-  },
-  logoName: {
-    fontSize: '1rem',
-    fontWeight: 700,
-    letterSpacing: '0.5px',
-    lineHeight: 1.2,
+  logoImg: {
+    width: '150px',
+    height: 'auto',
+    objectFit: 'contain',
+    filter: 'brightness(0) invert(1)',
   },
   logoSub: {
-    fontSize: '0.7rem',
+    fontSize: '0.68rem',
     color: '#8888aa',
     textTransform: 'uppercase',
-    letterSpacing: '1px',
+    letterSpacing: '1.5px',
+    paddingLeft: '2px',
   },
   nav: {
     display: 'flex',
