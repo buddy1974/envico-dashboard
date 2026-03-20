@@ -9,6 +9,10 @@ const NAV_ITEMS = [
   { to: '/invoices', label: 'Invoices', icon: '💰' },
   { to: '/payroll', label: 'Payroll', icon: '🧾' },
   { to: '/finance', label: 'Finance', icon: '📊' },
+  { to: '/training', label: 'Training', icon: '📚' },
+  { to: '/recruitment', label: 'Recruitment', icon: '🧑' },
+  { to: '/compliance', label: 'Compliance', icon: '✅' },
+  { to: '/staff-docs', label: 'Staff Docs', icon: '📄' },
 ];
 
 export default function Layout({ children, onLogout }) {
