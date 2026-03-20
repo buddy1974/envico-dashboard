@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: '🏠' },
+  { to: '/rota', label: 'Rota', icon: '📅' },
   { to: '/service-users', label: 'Service Users', icon: '👥' },
   { to: '/incidents', label: 'Incidents', icon: '🚨' },
   { to: '/medications', label: 'Medications', icon: '💊' },
