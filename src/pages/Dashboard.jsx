@@ -186,7 +186,7 @@ const cardStyles = {
   },
 };
 
-export default function Dashboard({ onLogout }) {
+export default function Dashboard({ onLogout = () => {} }) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -301,11 +301,6 @@ export default function Dashboard({ onLogout }) {
     );
   }
 
-  function logout() {
-    localStorage.removeItem('token');
-    onLogout();
-  }
-
   const sortedTasks = [...tasks].sort((a, b) => (PRIORITY_ORDER[b.priority] || 0) - (PRIORITY_ORDER[a.priority] || 0));
 
   const filteredTasks = sortedTasks.filter((t) => {
@@ -317,14 +312,10 @@ export default function Dashboard({ onLogout }) {
   });
 
   return (
-    <div style={styles.page}>
+    <div>
       <NotificationToasts notifications={notifications} onDismiss={dismissNotification} />
       <TaskDetail task={selectedTask} onClose={() => setSelectedTask(null)} />
-      <header style={styles.header}>
-        <span style={styles.logo}>Envico Admin</span>
-        <button style={styles.logoutBtn} onClick={logout}>Logout</button>
-      </header>
-      <main style={styles.main}>
+      <div style={styles.main}>
         <h2 style={styles.heading}>Tasks</h2>
         <SummaryCards summary={summary} />
         {loading && <p>Loading...</p>}
@@ -353,42 +344,13 @@ export default function Dashboard({ onLogout }) {
             />
           </>
         )}
-      </main>
+      </div>
     </div>
   );
 }
 
 const styles = {
-  page: {
-    minHeight: '100vh',
-    background: '#f0f2f5',
-    fontFamily: 'system-ui, sans-serif',
-  },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    background: '#1a1a2e',
-    color: '#fff',
-    padding: '0.75rem 2rem',
-  },
-  logo: {
-    fontSize: '1.1rem',
-    fontWeight: 700,
-    letterSpacing: '0.5px',
-  },
-  logoutBtn: {
-    background: 'transparent',
-    color: '#ccc',
-    border: '1px solid #555',
-    borderRadius: '4px',
-    padding: '4px 12px',
-    cursor: 'pointer',
-    fontSize: '0.85rem',
-  },
   main: {
-    maxWidth: '900px',
-    margin: '2rem auto',
     background: '#fff',
     borderRadius: '8px',
     padding: '1.5rem',
