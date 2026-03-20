@@ -228,11 +228,8 @@ export default function Dashboard({ onLogout }) {
       const res = await api.get('/api/tasks/summary');
       setSummary(res.data.summary ?? res.data);
     } catch (err) {
-      if (err.response?.status === 401) {
-        localStorage.removeItem('token');
-        onLogout();
-      }
-      // other errors: non-critical, silently ignore
+      console.error('[fetchSummary] error:', err.response?.status, err.response?.data);
+      // non-critical — do not logout on summary failure
     }
   }
 
@@ -278,7 +275,7 @@ export default function Dashboard({ onLogout }) {
   async function fetchTasks() {
     try {
       const res = await api.get('/api/tasks');
-      const withPriority = res.data.map((task) => ({ ...task, priority: task.priority || computePriority(task) }));
+      const withPriority = (res.data.tasks ?? res.data).map((task) => ({ ...task, priority: task.priority || computePriority(task) }));
       withPriority.forEach(triggerNotification);
       setTasks(withPriority);
     } catch (err) {
