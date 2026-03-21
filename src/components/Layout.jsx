@@ -109,7 +109,7 @@ export default function Layout({ children, onLogout }) {
           ))}
         </nav>
 
-        {/* Users — ADMIN only, red accent, inside sidebar bottom */}
+        {/* Users — ADMIN only, red accent */}
         {role === 'ADMIN' && (
           <NavLink
             to="/users"
@@ -121,6 +121,21 @@ export default function Layout({ children, onLogout }) {
           >
             <span style={styles.navIcon}>👤</span>
             Users
+          </NavLink>
+        )}
+
+        {/* System Overview — ADMIN only, navy accent */}
+        {role === 'ADMIN' && (
+          <NavLink
+            to="/ceo-onboarding"
+            style={({ isActive }) => ({
+              ...styles.navLink,
+              ...styles.overviewLink,
+              ...(isActive ? styles.overviewLinkActive : {}),
+            })}
+          >
+            <span style={styles.navIcon}>🗺️</span>
+            System Overview
           </NavLink>
         )}
 
@@ -248,6 +263,21 @@ const styles = {
     background: 'rgba(220, 38, 38, 0.25)',
     color: '#ffffff',
     border: '1px solid rgba(220, 38, 38, 0.5)',
+  },
+  overviewLink: {
+    margin: '0 0.75rem 0.25rem',
+    background: 'rgba(45, 45, 78, 0.4)',
+    color: '#8888bb',
+    border: '1px solid rgba(45, 45, 78, 0.8)',
+    fontWeight: 500,
+    borderRadius: '6px',
+    display: 'flex', alignItems: 'center', gap: '0.6rem',
+    padding: '0.55rem 0.75rem', textDecoration: 'none', fontSize: '0.88rem',
+  },
+  overviewLinkActive: {
+    background: '#2d2d4e',
+    color: '#ffffff',
+    border: '1px solid #4a4a6e',
   },
   logoutBtn: {
     display: 'flex',

@@ -19,6 +19,7 @@ import CeoOffice from './pages/CeoOffice';
 import CeoBriefing from './pages/CeoBriefing';
 import Rota from './pages/Rota';
 import DataImport from './pages/DataImport';
+import CeoOnboarding from './pages/CeoOnboarding';
 import Layout from './components/Layout';
 
 function ProtectedRoutes({ onLogout }) {
@@ -43,6 +44,7 @@ function ProtectedRoutes({ onLogout }) {
         <Route path="/ceo-briefing" element={<CeoBriefing />} />
         <Route path="/rota" element={<Rota />} />
         <Route path="/import" element={<DataImport />} />
+        <Route path="/ceo-onboarding" element={<CeoOnboarding />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>
