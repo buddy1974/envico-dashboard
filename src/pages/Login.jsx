@@ -14,7 +14,12 @@ export default function Login({ onLogin }) {
     try {
       const res = await api.post('/api/auth/login', { email, password });
       localStorage.setItem('token', res.data.token);
-      if (res.data.user) localStorage.setItem('user', JSON.stringify(res.data.user));
+      if (res.data.user) {
+        localStorage.setItem('user', JSON.stringify(res.data.user));
+        console.log('[Login] stored user:', res.data.user);
+      } else {
+        console.warn('[Login] no user object in response — role-based nav may not work');
+      }
       onLogin();
     } catch (err) {
       console.error('[Login] error:', err);

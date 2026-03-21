@@ -20,7 +20,27 @@ const NAV_ITEMS = [
 ];
 
 function getCurrentUser() {
-  try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; }
+  try {
+    const stored = JSON.parse(localStorage.getItem('user') || '{}');
+    // If role already in stored object, use it
+    if (stored.role) {
+      console.log('[Layout] role from localStorage:', stored.role);
+      return stored;
+    }
+    // Fallback: decode JWT payload to get role (JWT = header.payload.signature)
+    const token = localStorage.getItem('token');
+    if (token) {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const merged = { ...stored, ...payload };
+      // Backfill localStorage so future renders don't need to decode
+      localStorage.setItem('user', JSON.stringify(merged));
+      console.log('[Layout] role decoded from JWT:', payload.role);
+      return merged;
+    }
+    return stored;
+  } catch {
+    return {};
+  }
 }
 
 export default function Layout({ children, onLogout }) {
