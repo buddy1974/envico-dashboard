@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { to: '/recruitment',  label: 'Recruitment',    icon: '🧑',  roles: ['ADMIN', 'MANAGER'] },
   { to: '/compliance',   label: 'Compliance',     icon: '✅',  roles: ['ADMIN', 'MANAGER'] },
   { to: '/staff-docs',   label: 'Staff Docs',     icon: '📄',  roles: ['ADMIN', 'MANAGER'] },
+  { to: '/import',       label: 'Import Data',    icon: '📥',  roles: ['ADMIN', 'MANAGER'] },
 ];
 
 function getCurrentUser() {

@@ -17,6 +17,7 @@ import StaffDocs from './pages/StaffDocs';
 import Users from './pages/Users';
 import CeoOffice from './pages/CeoOffice';
 import Rota from './pages/Rota';
+import DataImport from './pages/DataImport';
 import Layout from './components/Layout';
 
 function ProtectedRoutes({ onLogout }) {
@@ -39,6 +40,7 @@ function ProtectedRoutes({ onLogout }) {
         <Route path="/users" element={<Users />} />
         <Route path="/ceo-office" element={<CeoOffice />} />
         <Route path="/rota" element={<Rota />} />
+        <Route path="/import" element={<DataImport />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>
