@@ -1,503 +1,452 @@
-import { useEffect, useState, useCallback } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
 function getUserRole() {
   try { return JSON.parse(localStorage.getItem('user') || '{}').role ?? null; } catch { return null; }
 }
 
-const TODAY_LABEL = new Date().toLocaleDateString('en-GB', {
+const TODAY = new Date().toLocaleDateString('en-GB', {
   weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
 });
 
-// ─── Spinner ──────────────────────────────────────────────────────────────────
-function Spinner({ size = 16, colour = '#d97706' }) {
-  return (
-    <span style={{
-      display: 'inline-block', width: size, height: size,
-      border: '2px solid rgba(255,255,255,0.2)', borderTopColor: colour,
-      borderRadius: '50%', animation: 'spin 0.7s linear infinite', flexShrink: 0,
-    }} />
-  );
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function fmtTime(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+function fmtCurrency(n) {
+  if (!n && n !== 0) return '—';
+  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(n);
 }
 
-// ─── Skeleton ─────────────────────────────────────────────────────────────────
-function Skeleton({ lines = 5 }) {
+// ─── Loading skeleton ─────────────────────────────────────────────────────────
+function Skeleton({ lines = 3 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
       {Array.from({ length: lines }).map((_, i) => (
-        <div key={i} style={{
-          height: '14px', borderRadius: '6px',
-          background: 'linear-gradient(90deg, #1e2a3a 25%, #2a3a4e 50%, #1e2a3a 75%)',
-          backgroundSize: '200% 100%',
-          animation: 'shimmer 1.5s infinite',
-          width: i % 3 === 2 ? '65%' : '100%',
-        }} />
+        <div key={i} style={{ height: i === 0 ? 18 : 13, borderRadius: 4, background: '#e5e7eb', animation: 'pulse 1.4s ease-in-out infinite', opacity: 1 - i * 0.2 }} />
       ))}
     </div>
   );
 }
 
-// ─── AI text renderer (bold + line breaks) ───────────────────────────────────
-function RenderAI({ text }) {
-  if (!text) return null;
+function Spinner({ size = 16, colour = '#fff' }) {
   return (
-    <div style={{ lineHeight: 1.7, color: '#cbd5e1', fontSize: '0.93rem' }}>
-      {text.split('\n').map((line, i, arr) => {
-        const parts = line.split(/\*\*(.*?)\*\*/g);
-        return (
-          <span key={i}>
-            {parts.map((p, j) => j % 2 === 1
-              ? <strong key={j} style={{ color: '#f1f5f9' }}>{p}</strong>
-              : p
-            )}
-            {i < arr.length - 1 && <br />}
-          </span>
-        );
-      })}
+    <span style={{ display: 'inline-block', width: size, height: size, border: `2px solid rgba(255,255,255,0.25)`, borderTopColor: colour, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+  );
+}
+
+// ─── Data Panel wrapper ───────────────────────────────────────────────────────
+function DataPanel({ title, icon, borderColour, children, loading }) {
+  return (
+    <div style={{ ...p.card, borderLeft: `4px solid ${borderColour}` }}>
+      <div style={p.panelHeader}>
+        <span style={p.panelIcon}>{icon}</span>
+        <span style={{ ...p.panelTitle, color: borderColour }}>{title}</span>
+      </div>
+      {loading ? <Skeleton /> : <>{children}</>}
     </div>
   );
 }
 
-// ─── Status badge ─────────────────────────────────────────────────────────────
-function StatusBadge({ urgent, amber }) {
-  if (urgent > 0) return <span style={badge('🔴', '#dc2626', '#450a0a')}>🔴 RED — Action Required</span>;
-  if (amber  > 0) return <span style={badge('🟡', '#d97706', '#451a03')}>🟡 AMBER — Review Needed</span>;
-  return                  <span style={badge('🟢', '#16a34a', '#052e16')}>🟢 GREEN — All Clear</span>;
-}
-function badge(_, text, bg) {
-  return {
-    padding: '0.3rem 0.85rem', borderRadius: '20px', fontSize: '0.78rem',
-    fontWeight: 700, background: bg, color: text, border: `1px solid ${text}40`,
-  };
-}
-
-// ─── Panel wrapper ────────────────────────────────────────────────────────────
-function Panel({ title, colour, children, loading }) {
+function StatRow({ label, value, colour }) {
   return (
-    <div style={{ ...styles.panel, borderLeftColor: colour }}>
-      <div style={{ ...styles.panelTitle, color: colour }}>{title}</div>
-      {loading ? (
-        <div style={{ padding: '0.5rem 0' }}>
-          {[80, 60, 70].map((w, i) => (
-            <div key={i} style={{
-              height: '12px', borderRadius: '4px', marginBottom: '0.5rem',
-              background: '#e5e7eb', width: `${w}%`, animation: 'shimmer 1.5s infinite',
-            }} />
-          ))}
-        </div>
-      ) : children}
+    <div style={p.statRow}>
+      <span style={p.statLabel}>{label}</span>
+      <span style={{ ...p.statValue, color: colour ?? '#1a1a2e' }}>{value ?? '—'}</span>
     </div>
   );
 }
 
-// ─── Stat row ─────────────────────────────────────────────────────────────────
-function Stat({ label, value, colour = '#1e293b', warn = false }) {
-  return (
-    <div style={styles.statRow}>
-      <span style={styles.statLabel}>{label}</span>
-      <span style={{ ...styles.statValue, color: warn ? '#dc2626' : colour }}>{value}</span>
-    </div>
-  );
+function AllClear() {
+  return <div style={p.allClear}>✅ All clear</div>;
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
-export default function CeoBriefing() {
-  const role     = getUserRole();
-  const navigate = useNavigate();
-  if (role !== 'ADMIN') return <Navigate to="/" replace />;
-
-  // panel data
-  const [urgent,     setUrgent]     = useState(null);
-  const [ops,        setOps]        = useState(null);
-  const [people,     setPeople]     = useState(null);
-  const [finance,    setFinance]    = useState(null);
-  const [compliance, setCompliance] = useState(null);
-  const [digital,    setDigital]    = useState(null);
-
-  // AI briefing
-  const [briefing,      setBriefing]      = useState('');
-  const [briefingTime,  setBriefingTime]  = useState('');
-  const [briefingLoading, setBriefingLoading] = useState(false);
-  const [briefingError,   setBriefingError]   = useState('');
-
-  // history
-  const [historyOpen,    setHistoryOpen]    = useState(false);
-  const [briefingHistory, setBriefingHistory] = useState([]);
-
-  // ── fetch panel data ──────────────────────────────────────────────────────
-  async function safe(fn) {
-    try { return await fn(); } catch { return null; }
-  }
-
-  const loadPanels = useCallback(async () => {
-    // URGENT
-    safe(async () => {
-      const [tasks, incidents] = await Promise.allSettled([
-        api.get('/api/tasks?priority=CRITICAL&status=PENDING'),
-        api.get('/api/incidents?severity=CRITICAL&status=OPEN'),
-      ]);
-      const critTasks     = tasks.status     === 'fulfilled' ? (tasks.value.data.tasks     ?? []).length : 0;
-      const critIncidents = incidents.status === 'fulfilled' ? (incidents.value.data.data  ?? []).length : 0;
-      setUrgent({ critTasks, critIncidents, total: critTasks + critIncidents });
-    });
-
-    // OPERATIONS
-    safe(async () => {
-      const [su, taskSum] = await Promise.allSettled([
-        api.get('/api/service-users'),
-        api.get('/api/tasks?limit=1'),
-      ]);
-      const serviceUsers  = su.status      === 'fulfilled' ? (su.value.data.data          ?? su.value.data.serviceUsers ?? []).length : '—';
-      const tasksPending  = taskSum.status === 'fulfilled' ? (taskSum.value.data.pending  ?? taskSum.value.data.total    ?? '—') : '—';
-      setOps({ serviceUsers, tasksPending });
-    });
-
-    // PEOPLE
-    safe(async () => {
-      const [training, docs, rota] = await Promise.allSettled([
-        api.get('/api/training?status=OVERDUE'),
-        api.get('/api/staff-documents?status=EXPIRING_SOON'),
-        api.get('/api/rotas/current'),
-      ]);
-      const overdueTraining = training.status === 'fulfilled' ? (training.value.data.data ?? []).length : '—';
-      const expiringDocs    = docs.status     === 'fulfilled' ? (docs.value.data.data     ?? []).length : '—';
-      const staffOnDuty     = rota.status     === 'fulfilled' ? (rota.value.data.data?.shifts ?? []).filter(s => s.status === 'IN_PROGRESS').length : '—';
-      setPeople({ overdueTraining, expiringDocs, staffOnDuty });
-    });
-
-    // FINANCE
-    safe(async () => {
-      const [inv, payroll] = await Promise.allSettled([
-        api.get('/api/invoices?status=OVERDUE'),
-        api.get('/api/payroll?status=PENDING'),
-      ]);
-      const overdueInvoices  = inv.status    === 'fulfilled' ? (inv.value.data.data    ?? []) : [];
-      const payrollPending   = payroll.status === 'fulfilled' ? (payroll.value.data.data ?? []).length : '—';
-      const outstanding = overdueInvoices.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
-      setFinance({ outstanding, overdueCount: overdueInvoices.length, payrollPending });
-    });
-
-    // COMPLIANCE
-    safe(async () => {
-      const res = await api.get('/api/compliance');
-      const items        = res.data.data ?? [];
-      const actionNeeded = items.filter(i => i.status === 'ACTION_REQUIRED').length;
-      const compliant    = items.filter(i => i.status === 'COMPLIANT').length;
-      const nextCheck    = items.find(i => i.next_review_date)?.next_review_date;
-      setCompliance({ actionNeeded, compliant, total: items.length, nextCheck });
-    });
-
-    // DIGITAL OFFICE
-    safe(async () => {
-      const [cal, gmail] = await Promise.allSettled([
-        api.get('/api/calendar/today'),
-        api.get('/api/gmail/messages?maxResults=20'),
-      ]);
-      const events   = cal.status   === 'fulfilled' ? (cal.value.data.events   ?? []) : null;
-      const messages = gmail.status === 'fulfilled' ? (gmail.value.data.messages ?? []) : null;
-
-      const NOISE = ['noreply', 'no-reply', 'mailer-daemon', 'newsletter', 'unsubscribe', 'donotreply'];
-      const PRIORITY_SENDERS = ['cqc', 'nhs', 'local authority', 'council', 'ofsted', 'hmrc', 'envicosl'];
-
-      const filteredEmails = (messages ?? []).filter(m => {
-        const from    = (m.from ?? '').toLowerCase();
-        const subject = (m.subject ?? '').toLowerCase();
-        const isNoise = NOISE.some(n => from.includes(n) || subject.includes(n));
-        return !isNoise;
-      }).slice(0, 5);
-
-      const priorityEmails = filteredEmails.filter(m => {
-        const from    = (m.from ?? '').toLowerCase();
-        const subject = (m.subject ?? '').toLowerCase();
-        return PRIORITY_SENDERS.some(p => from.includes(p) || subject.includes(p));
-      });
-
-      setDigital({
-        connected:     events !== null,
-        events:        (events ?? []).slice(0, 4),
-        emails:        filteredEmails,
-        priorityCount: priorityEmails.length,
-      });
-    });
-  }, []);
-
-  // ── AI briefing ───────────────────────────────────────────────────────────
-  const generateBriefing = useCallback(async () => {
-    setBriefingLoading(true);
-    setBriefingError('');
-    try {
-      const res = await api.post('/api/ceo/briefing');
-      const text = res.data.briefing ?? res.data.answer ?? '';
-      setBriefing(text);
-      const ts = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-      setBriefingTime(ts);
-      // store in history
-      setBriefingHistory(prev => [{ text, time: ts, date: new Date().toLocaleDateString('en-GB') }, ...prev].slice(0, 7));
-    } catch (err) {
-      setBriefingError(err.response?.data?.error ?? 'Briefing unavailable — check API connection');
-    } finally {
-      setBriefingLoading(false);
-    }
-  }, []);
+// ─── Panel 1 — Urgent ────────────────────────────────────────────────────────
+function UrgentPanel() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadPanels();
-    generateBriefing();
+    Promise.all([
+      api.get('/api/tasks', { params: { priority: 'CRITICAL', status: 'PENDING' } }).catch(() => ({ data: { tasks: [] } })),
+      api.get('/api/compliance', { params: { status: 'ACTION_REQUIRED' } }).catch(() => ({ data: { items: [] } })),
+      api.get('/api/incidents', { params: { severity: 'CRITICAL', status: 'OPEN' } }).catch(() => ({ data: { incidents: [] } })),
+    ]).then(([tasks, compliance, incidents]) => {
+      setData({
+        criticalTasks:     (tasks.data.tasks      ?? tasks.data.data      ?? []).length,
+        complianceIssues:  (compliance.data.items ?? compliance.data.data ?? []).length,
+        criticalIncidents: (incidents.data.incidents ?? incidents.data.data ?? []).length,
+      });
+    }).finally(() => setLoading(false));
   }, []);
 
-  // ── derived status ────────────────────────────────────────────────────────
-  const urgentCount = urgent?.total ?? 0;
-  const amberCount  = (people?.overdueTraining > 0 ? 1 : 0) + (finance?.overdueCount > 0 ? 1 : 0) + (compliance?.actionNeeded > 0 ? 1 : 0);
+  const allClear = data && data.criticalTasks === 0 && data.complianceIssues === 0 && data.criticalIncidents === 0;
+  return (
+    <DataPanel title="URGENT" icon="🔴" borderColour="#dc2626" loading={loading}>
+      {allClear ? <AllClear /> : <>
+        <StatRow label="Critical tasks"     value={data?.criticalTasks}     colour={data?.criticalTasks     > 0 ? '#dc2626' : '#166534'} />
+        <StatRow label="Compliance actions" value={data?.complianceIssues}  colour={data?.complianceIssues  > 0 ? '#dc2626' : '#166534'} />
+        <StatRow label="Critical incidents" value={data?.criticalIncidents} colour={data?.criticalIncidents > 0 ? '#dc2626' : '#166534'} />
+      </>}
+    </DataPanel>
+  );
+}
+
+// ─── Panel 2 — Operations ────────────────────────────────────────────────────
+function OperationsPanel() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      api.get('/api/service-users').catch(() => ({ data: { service_users: [] } })),
+      api.get('/api/tasks/summary').catch(() => ({ data: { pending: 0 } })),
+      api.get('/api/incidents').catch(() => ({ data: { incidents: [] } })),
+    ]).then(([su, tasks, incidents]) => {
+      const allSU  = su.data.service_users ?? su.data.data ?? [];
+      const active = allSU.filter((u) => u.status === 'ACTIVE').length || allSU.length;
+      const allInc = incidents.data.incidents ?? incidents.data.data ?? [];
+      const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
+      setData({
+        activeServiceUsers: active,
+        pendingTasks: tasks.data.pending ?? tasks.data.total_pending ?? 0,
+        weeklyIncidents: allInc.filter((i) => new Date(i.created_at ?? i.date) >= weekAgo).length,
+      });
+    }).finally(() => setLoading(false));
+  }, []);
 
   return (
-    <div style={styles.page}>
-      <style>{`
-        @keyframes spin    { to { transform: rotate(360deg); } }
-        @keyframes shimmer { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
-        @media print {
-          .no-print { display: none !important; }
-          .print-full { width: 100% !important; }
-        }
-        @media (max-width: 900px) {
-          .grid-panels { grid-template-columns: 1fr 1fr !important; }
-        }
-        @media (max-width: 600px) {
-          .grid-panels { grid-template-columns: 1fr !important; }
-          .actions-row { flex-wrap: wrap !important; }
-        }
-      `}</style>
+    <DataPanel title="OPERATIONS" icon="🔵" borderColour="#3b82f6" loading={loading}>
+      <StatRow label="Service users active" value={data?.activeServiceUsers} />
+      <StatRow label="Tasks pending"        value={data?.pendingTasks}       colour={data?.pendingTasks > 10 ? '#d97706' : undefined} />
+      <StatRow label="Incidents this week"  value={data?.weeklyIncidents}    colour={data?.weeklyIncidents > 3 ? '#dc2626' : undefined} />
+    </DataPanel>
+  );
+}
 
-      {/* ── SECTION 1: Hero Header ─────────────────────────────────────── */}
-      <div style={styles.hero}>
-        <div style={styles.heroLeft}>
-          <div style={styles.heroTitle}>📊 CEO Morning Briefing</div>
-          <div style={styles.heroDate}>{TODAY_LABEL}</div>
-          <div style={styles.heroCompany}>Envico Supported Living Ltd</div>
+// ─── Panel 3 — People & HR ───────────────────────────────────────────────────
+function PeoplePanel() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      api.get('/api/training/overdue').catch(() => ({ data: { training: [] } })),
+      api.get('/api/staff-documents/expiring').catch(() => ({ data: { documents: [] } })),
+      api.get('/api/recruitment').catch(() => ({ data: { applications: [] } })),
+      api.get('/api/rotas/current').catch(() => ({ data: { shifts: [] } })),
+    ]).then(([training, docs, recruitment, rota]) => {
+      const today  = new Date().toISOString().slice(0, 10);
+      const shifts = rota.data.shifts ?? rota.data.data ?? [];
+      const apps   = recruitment.data.applications ?? recruitment.data.data ?? [];
+      setData({
+        onDutyToday:      shifts.filter((s) => s.date === today && s.status === 'IN_PROGRESS').length,
+        trainingOverdue:  (training.data.training ?? training.data.data ?? []).length,
+        docsExpiring:     (docs.data.documents    ?? docs.data.data     ?? []).length,
+        openApplications: apps.filter((a) => !['HIRED', 'REJECTED'].includes(a.status)).length,
+      });
+    }).finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <DataPanel title="PEOPLE & HR" icon="🟣" borderColour="#7c3aed" loading={loading}>
+      <StatRow label="Staff on duty today"  value={data?.onDutyToday}       colour="#166534" />
+      <StatRow label="Training overdue"     value={data?.trainingOverdue}   colour={data?.trainingOverdue > 0 ? '#d97706' : undefined} />
+      <StatRow label="Docs expiring (30d)"  value={data?.docsExpiring}      colour={data?.docsExpiring    > 0 ? '#dc2626' : undefined} />
+      <StatRow label="Open applications"    value={data?.openApplications} />
+    </DataPanel>
+  );
+}
+
+// ─── Panel 4 — Finance ───────────────────────────────────────────────────────
+function FinancePanel() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      api.get('/api/invoices').catch(() => ({ data: { invoices: [] } })),
+      api.get('/api/payroll').catch(() => ({ data: { payroll: [] } })),
+      api.get('/api/finance/summary').catch(() => ({ data: {} })),
+    ]).then(([invoices, payroll, summary]) => {
+      const allInv     = invoices.data.invoices ?? invoices.data.data ?? [];
+      const outstanding = allInv.filter((i) => i.status !== 'PAID').reduce((s, i) => s + (i.amount ?? i.total ?? 0), 0);
+      const pendingPay  = (payroll.data.payroll ?? payroll.data.data ?? []).filter((p) => p.status === 'PENDING').length;
+      setData({
+        outstanding,
+        overdueInvoices: allInv.filter((i) => i.status === 'OVERDUE').length,
+        payrollPending:  pendingPay,
+        monthBalance:    summary.data.balance ?? summary.data.net_balance ?? null,
+      });
+    }).finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <DataPanel title="FINANCE" icon="🟢" borderColour="#16a34a" loading={loading}>
+      <StatRow label="Outstanding"     value={fmtCurrency(data?.outstanding)}  colour={data?.outstanding > 5000 ? '#dc2626' : undefined} />
+      <StatRow label="Overdue invoices" value={data?.overdueInvoices}           colour={data?.overdueInvoices > 0 ? '#dc2626' : undefined} />
+      <StatRow label="Payroll pending"  value={data?.payrollPending}            colour={data?.payrollPending  > 0 ? '#d97706' : undefined} />
+      {data?.monthBalance !== null && (
+        <StatRow label="Month balance"  value={fmtCurrency(data?.monthBalance)} colour={data?.monthBalance >= 0 ? '#166534' : '#dc2626'} />
+      )}
+    </DataPanel>
+  );
+}
+
+// ─── Panel 5 — Compliance ────────────────────────────────────────────────────
+function CompliancePanel() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get('/api/compliance').catch(() => ({ data: { items: [] } }))
+      .then((res) => {
+        const items = res.data.items ?? res.data.data ?? [];
+        const next  = [...items]
+          .filter((i) => i.next_check_date ?? i.due_date)
+          .sort((a, b) => new Date(a.next_check_date ?? a.due_date) - new Date(b.next_check_date ?? b.due_date))[0];
+        setData({
+          compliant: items.filter((i) => i.status === 'COMPLIANT').length,
+          action:    items.filter((i) => i.status === 'ACTION_REQUIRED').length,
+          upcoming:  items.filter((i) => i.status === 'UPCOMING').length,
+          nextCheck: next?.next_check_date ?? next?.due_date ?? null,
+        });
+      }).finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <DataPanel title="COMPLIANCE" icon="🟠" borderColour="#d97706" loading={loading}>
+      <StatRow label="Compliant"       value={data?.compliant} colour="#166534" />
+      <StatRow label="Action required" value={data?.action}    colour={data?.action > 0 ? '#dc2626' : undefined} />
+      <StatRow label="Upcoming"        value={data?.upcoming}  colour={data?.upcoming > 0 ? '#d97706' : undefined} />
+      {data?.nextCheck && (
+        <StatRow label="Next check" value={new Date(data.nextCheck).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} />
+      )}
+    </DataPanel>
+  );
+}
+
+// ─── Panel 6 — Digital Office ────────────────────────────────────────────────
+const NOISE_PATTERNS = ['no-reply', 'noreply', 'newsletter', 'unsubscribe', 'donotreply', 'notification'];
+const PRIORITY_SENDERS = ['cqc', 'nhs', 'local authority', 'council', 'ofsted', 'hmrc', 'family', 'parent', 'guardian'];
+
+function DigitalOfficePanel() {
+  const [calEvents, setCalEvents] = useState([]);
+  const [emails, setEmails]       = useState([]);
+  const [calConn, setCalConn]     = useState(true);
+  const [gmailConn, setGmailConn] = useState(true);
+  const [loading, setLoading]     = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      api.get('/api/calendar/today')
+        .then((r) => { setCalEvents(r.data.events ?? []); setCalConn(true); })
+        .catch((e) => { if (e.response?.status !== 404) setCalConn(false); }),
+      api.get('/api/gmail/messages')
+        .then((r) => {
+          const msgs = (r.data.messages ?? [])
+            .filter((m) => {
+              const text = `${m.from ?? ''} ${m.subject ?? ''}`.toLowerCase();
+              return !NOISE_PATTERNS.some((n) => text.includes(n));
+            })
+            .slice(0, 6);
+          setEmails(msgs);
+          setGmailConn(true);
+        })
+        .catch((e) => { if (e.response?.status !== 404) setGmailConn(false); }),
+    ]).finally(() => setLoading(false));
+  }, []);
+
+  function isPriority(msg) {
+    const text = `${msg.from ?? ''} ${msg.subject ?? ''}`.toLowerCase();
+    return PRIORITY_SENDERS.some((s) => text.includes(s));
+  }
+
+  async function connectGoogle(service) {
+    try {
+      const res = await api.get(`/api/${service}/auth`);
+      if (res.data.url) window.location.href = res.data.url;
+    } catch { alert('Connection unavailable.'); }
+  }
+
+  return (
+    <DataPanel title="DIGITAL OFFICE" icon="💼" borderColour="#b45309" loading={loading}>
+      <div style={p.subSection}>
+        <div style={p.subLabel}>Today's Meetings</div>
+        {!calConn
+          ? <button style={p.connectBtn} onClick={() => connectGoogle('calendar')}>🔗 Connect Calendar</button>
+          : calEvents.length === 0
+            ? <div style={p.emptyNote}>No meetings today</div>
+            : calEvents.slice(0, 3).map((ev, i) => (
+                <div key={i} style={p.eventRow}>
+                  <span style={p.eventTime}>{ev.time ?? ev.start ?? '—'}</span>
+                  <span style={p.eventTitle}>{ev.title ?? ev.summary}</span>
+                </div>
+              ))
+        }
+      </div>
+      <div style={p.subSection}>
+        <div style={p.subLabel}>Priority Emails</div>
+        {!gmailConn
+          ? <button style={p.connectBtn} onClick={() => connectGoogle('gmail')}>🔗 Connect Gmail</button>
+          : emails.length === 0
+            ? <div style={p.emptyNote}>Inbox clear</div>
+            : emails.slice(0, 4).map((msg, i) => (
+                <div key={i} style={{ ...p.emailRow, ...(isPriority(msg) ? p.emailHighlight : {}) }}>
+                  <span style={p.emailFrom}>{(msg.from ?? '').split('<')[0].trim() || 'Unknown'}</span>
+                  <span style={p.emailSubject}>{msg.subject ?? '(no subject)'}</span>
+                </div>
+              ))
+        }
+      </div>
+    </DataPanel>
+  );
+}
+
+// ─── AI Narrative Panel ──────────────────────────────────────────────────────
+function AnimDots() {
+  return (
+    <>
+      {[0, 0.2, 0.4].map((delay, i) => (
+        <span key={i} style={{ animation: 'pulse 1.2s ease-in-out infinite', animationDelay: `${delay}s` }}>.</span>
+      ))}
+    </>
+  );
+}
+
+function AINarrativePanel({ briefing, loading, timestamp }) {
+  if (loading) {
+    return (
+      <div style={n.wrap}>
+        <div style={n.header}>
+          <div style={n.title}>AI Executive Summary</div>
+          <div style={n.sub}>Generating your briefing<AnimDots /></div>
         </div>
-        <div style={styles.heroRight}>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <StatusBadge urgent={urgentCount} amber={amberCount} />
-            <button
-              className="no-print"
-              style={styles.generateBtn}
-              onClick={() => { loadPanels(); generateBriefing(); }}
-              disabled={briefingLoading}
-            >
-              {briefingLoading ? <><Spinner size={13} colour="#92400e" />&nbsp;Generating...</> : '✨ Generate Briefing'}
-            </button>
-            <button
-              className="no-print"
-              style={styles.printBtn}
-              onClick={() => window.print()}
-            >
-              🖨️ Print
-            </button>
-          </div>
-          {briefingTime && (
-            <div style={styles.lastGen}>Last generated: {briefingTime}</div>
-          )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '0.5rem' }}>
+          {[100, 88, 94, 72, 96, 80, 91, 65].map((w, i) => (
+            <div key={i} style={{ height: 13, width: `${w}%`, borderRadius: 4, background: 'rgba(255,255,255,0.12)', animation: 'pulse 1.4s ease-in-out infinite', animationDelay: `${i * 0.1}s` }} />
+          ))}
         </div>
       </div>
+    );
+  }
 
-      {/* ── SECTION 2: Six Data Panels ────────────────────────────────── */}
-      <div className="grid-panels" style={styles.panelGrid}>
+  if (!briefing) return null;
 
-        {/* PANEL 1 — URGENT */}
-        <Panel title="🔴 URGENT" colour="#dc2626" loading={urgent === null}>
-          {urgent && urgent.total === 0 ? (
-            <div style={styles.allClear}>✅ All clear — no urgent items</div>
-          ) : urgent && (
-            <>
-              {urgent.critTasks > 0    && <Stat label="Critical tasks"     value={urgent.critTasks}    warn />}
-              {urgent.critIncidents > 0 && <Stat label="Critical incidents" value={urgent.critIncidents} warn />}
-            </>
-          )}
-        </Panel>
+  const lines = briefing.split('\n');
+  return (
+    <div style={n.wrap}>
+      <div style={n.header}>
+        <div>
+          <div style={n.title}>AI Executive Summary</div>
+          <div style={n.sub}>Generated by Claude · {timestamp ? fmtTime(timestamp) : '—'}</div>
+        </div>
+        <button style={n.printBtn} onClick={() => window.print()}>🖨️ Print Briefing</button>
+      </div>
+      <div style={n.content}>
+        {lines.map((line, i) => {
+          const parts = line.split(/\*\*(.*?)\*\*/g);
+          return (
+            <span key={i}>
+              {parts.map((part, j) => j % 2 === 1 ? <strong key={j}>{part}</strong> : part)}
+              {i < lines.length - 1 && <br />}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
-        {/* PANEL 2 — OPERATIONS */}
-        <Panel title="🔵 OPERATIONS" colour="#2563eb" loading={ops === null}>
-          {ops && (
-            <>
-              <Stat label="Active service users" value={ops.serviceUsers} colour="#2563eb" />
-              <Stat label="Tasks pending"         value={ops.tasksPending}  colour="#2563eb" />
-            </>
-          )}
-        </Panel>
+// ─── Quick Actions ────────────────────────────────────────────────────────────
+function QuickActions({ onRefresh }) {
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState({});
 
-        {/* PANEL 3 — PEOPLE & HR */}
-        <Panel title="🟣 PEOPLE & HR" colour="#7c3aed" loading={people === null}>
-          {people && (
-            <>
-              <Stat label="Staff on duty now"   value={people.staffOnDuty}     colour="#7c3aed" />
-              <Stat label="Training overdue"    value={people.overdueTraining}  warn={people.overdueTraining > 0} />
-              <Stat label="Docs expiring soon"  value={people.expiringDocs}     warn={people.expiringDocs > 0} />
-            </>
-          )}
-        </Panel>
+  async function run(key, fn) {
+    setBusy((b) => ({ ...b, [key]: true }));
+    try { await fn(); } catch { /* best effort */ }
+    finally { setBusy((b) => ({ ...b, [key]: false })); }
+  }
 
-        {/* PANEL 4 — FINANCE */}
-        <Panel title="🟢 FINANCE" colour="#16a34a" loading={finance === null}>
-          {finance && (
-            <>
-              <Stat label="Outstanding invoices" value={`£${Number(finance.outstanding).toLocaleString('en-GB', { minimumFractionDigits: 2 })}`} warn={finance.overdueCount > 0} colour="#16a34a" />
-              <Stat label="Invoices overdue"      value={finance.overdueCount}   warn={finance.overdueCount > 0} />
-              <Stat label="Payroll pending"       value={finance.payrollPending}  colour="#16a34a" />
-            </>
-          )}
-        </Panel>
+  const actions = [
+    { key: 'invoices',  label: '💰 Chase Invoices',   fn: () => api.post('/api/automation/chase-invoice') },
+    { key: 'report',    label: '📧 Weekly Report',     fn: () => api.post('/api/automation/send-report') },
+    { key: 'tasks',     label: '📋 Critical Tasks',    fn: () => navigate('/') },
+    { key: 'hr',        label: '👥 HR Summary',        fn: () => api.post('/api/ceo/command', { command: 'HR summary' }) },
+    { key: 'calendar',  label: '📅 My Calendar',       fn: () => navigate('/ceo-office') },
+    { key: 'refresh',   label: '🔄 Refresh Briefing',  fn: onRefresh },
+  ];
 
-        {/* PANEL 5 — COMPLIANCE */}
-        <Panel title="🟠 COMPLIANCE" colour="#ea580c" loading={compliance === null}>
-          {compliance && (
-            <>
-              <Stat label="Compliant items"    value={compliance.compliant}     colour="#16a34a" />
-              <Stat label="Action required"    value={compliance.actionNeeded}  warn={compliance.actionNeeded > 0} />
-              {compliance.nextCheck && (
-                <Stat label="Next check" value={new Date(compliance.nextCheck).toLocaleDateString('en-GB')} colour="#ea580c" />
-              )}
-            </>
-          )}
-        </Panel>
+  return (
+    <div style={q.row}>
+      {actions.map((a) => (
+        <button
+          key={a.key}
+          style={{ ...q.btn, opacity: busy[a.key] ? 0.6 : 1 }}
+          onClick={() => run(a.key, a.fn)}
+          disabled={!!busy[a.key]}
+        >
+          {busy[a.key] ? <Spinner size={12} colour="#374151" /> : a.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
-        {/* PANEL 6 — DIGITAL OFFICE */}
-        <Panel title="💼 DIGITAL OFFICE" colour="#d97706" loading={digital === null}>
-          {digital && !digital.connected && (
-            <div>
-              <div style={{ color: '#6b7280', fontSize: '0.82rem', marginBottom: '0.75rem' }}>
-                Google Account not connected
+// ─── Briefing History ────────────────────────────────────────────────────────
+function BriefingHistory() {
+  const [open, setOpen]       = useState(false);
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState(null);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await api.get('/api/ceo/briefings');
+      setHistory(res.data.briefings ?? res.data.data ?? []);
+    } catch { setHistory([]); }
+    finally { setLoading(false); }
+  }
+
+  function toggle() { if (!open) load(); setOpen((v) => !v); setSelected(null); }
+
+  return (
+    <div style={h.wrap}>
+      <button style={h.toggle} onClick={toggle}>
+        {open ? '▲' : '▼'} View Previous Briefings
+      </button>
+      {open && (
+        <div style={h.panel}>
+          {loading && <div style={h.msg}>Loading history…</div>}
+          {!loading && history.length === 0 && <div style={h.msg}>No previous briefings found.</div>}
+          {!loading && history.length > 0 && (
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <div style={h.list}>
+                {history.map((b, i) => (
+                  <button
+                    key={i}
+                    style={{ ...h.histItem, ...(selected === i ? h.histActive : {}) }}
+                    onClick={() => setSelected(i)}
+                  >
+                    <div style={h.histDate}>{new Date(b.created_at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</div>
+                    <div style={h.histTime}>{fmtTime(b.created_at)}</div>
+                  </button>
+                ))}
               </div>
-              <button style={styles.connectBtn} onClick={() => navigate('/ceo-office')}>
-                🔗 Connect Google Account
-              </button>
-            </div>
-          )}
-          {digital && digital.connected && (
-            <>
-              {digital.events.length > 0 ? (
-                <div style={{ marginBottom: '0.6rem' }}>
-                  <div style={styles.subLabel}>Today's meetings</div>
-                  {digital.events.map((ev, i) => (
-                    <div key={i} style={styles.eventRow}>
-                      <span style={styles.eventTime}>
-                        {ev.start?.dateTime
-                          ? new Date(ev.start.dateTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-                          : 'All day'}
-                      </span>
-                      <span style={styles.eventTitle}>{ev.summary ?? 'Untitled'}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ color: '#6b7280', fontSize: '0.82rem', marginBottom: '0.5rem' }}>No meetings today</div>
-              )}
-              {digital.priorityCount > 0 && (
-                <div style={{ ...styles.subLabel, color: '#dc2626' }}>
-                  ⚡ {digital.priorityCount} priority email{digital.priorityCount !== 1 ? 's' : ''}
-                </div>
-              )}
-              {digital.emails.slice(0, 3).map((em, i) => (
-                <div key={i} style={styles.emailRow}>
-                  <div style={styles.emailFrom}>{(em.from ?? '').replace(/<.*>/, '').trim() || 'Unknown'}</div>
-                  <div style={styles.emailSubject}>{em.subject ?? '(no subject)'}</div>
-                </div>
-              ))}
-            </>
-          )}
-        </Panel>
-      </div>
-
-      {/* ── SECTION 3: AI Narrative ───────────────────────────────────── */}
-      <div style={styles.aiPanel}>
-        <div style={styles.aiHeader}>
-          <div>
-            <div style={styles.aiTitle}>AI Executive Summary</div>
-            <div style={styles.aiSubtitle}>
-              Generated by Claude{briefingTime ? ` · ${briefingTime}` : ''}
-            </div>
-          </div>
-          {briefingLoading && (
-            <div style={styles.aiGenerating}>
-              <Spinner size={14} colour="#d97706" />
-              <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Generating your briefing...</span>
-            </div>
-          )}
-        </div>
-
-        <div style={styles.aiBody}>
-          {briefingLoading && !briefing && <Skeleton lines={8} />}
-          {briefingError && <div style={{ color: '#f87171', fontSize: '0.88rem' }}>{briefingError}</div>}
-          {!briefingLoading && !briefingError && !briefing && (
-            <div style={{ color: '#64748b', fontSize: '0.88rem' }}>Click "Generate Briefing" to create your morning summary.</div>
-          )}
-          {briefing && <RenderAI text={briefing} />}
-        </div>
-      </div>
-
-      {/* ── SECTION 4: Quick Actions ──────────────────────────────────── */}
-      <div className="actions-row no-print" style={styles.actionsRow}>
-        {[
-          {
-            label: '💰 Chase Invoices',
-            action: async () => { await api.post('/api/automation/chase-invoice'); alert('Chase emails sent ✓'); },
-          },
-          {
-            label: '📧 Weekly Report',
-            action: async () => { await api.post('/api/automation/send-report'); alert('Report sent ✓'); },
-          },
-          {
-            label: '📋 Critical Tasks',
-            action: () => navigate('/'),
-          },
-          {
-            label: '👥 HR Summary',
-            action: async () => {
-              setBriefingLoading(true);
-              try {
-                const res = await api.post('/api/ceo/command', { command: 'HR summary' });
-                setBriefing(res.data.result ?? res.data.answer ?? '');
-                setBriefingTime(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
-              } catch { setBriefingError('HR summary unavailable'); }
-              finally { setBriefingLoading(false); }
-            },
-          },
-          {
-            label: '📅 My Calendar',
-            action: () => navigate('/ceo-office'),
-          },
-          {
-            label: '🔄 Refresh',
-            action: () => { loadPanels(); generateBriefing(); },
-          },
-        ].map((btn, i) => (
-          <button key={i} style={styles.actionBtn} onClick={btn.action}>
-            {btn.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── SECTION 5: Briefing History ───────────────────────────────── */}
-      {briefingHistory.length > 0 && (
-        <div className="no-print" style={styles.historyWrap}>
-          <button style={styles.historyToggle} onClick={() => setHistoryOpen(o => !o)}>
-            {historyOpen ? '▲' : '▼'} Briefing History ({briefingHistory.length})
-          </button>
-          {historyOpen && (
-            <div style={styles.historyList}>
-              {briefingHistory.map((h, i) => (
-                <div key={i} style={styles.historyItem}>
-                  <div style={styles.historyMeta}>
-                    <span style={{ fontWeight: 600, color: '#d97706' }}>{h.date}</span>
-                    <span style={{ color: '#6b7280' }}>{h.time}</span>
-                    <button style={styles.historyViewBtn} onClick={() => setBriefing(h.text)}>
-                      View
-                    </button>
+              {selected !== null && history[selected] && (
+                <div style={h.histContent}>
+                  <div style={{ fontSize: '0.78rem', color: '#6b7280', marginBottom: '0.75rem' }}>
+                    {new Date(history[selected].created_at).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                   </div>
-                  <div style={{ color: '#6b7280', fontSize: '0.8rem', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                    {h.text.slice(0, 120)}…
+                  <div style={{ fontSize: '0.87rem', color: '#374151', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+                    {history[selected].briefing ?? history[selected].content ?? '—'}
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>
@@ -506,272 +455,211 @@ export default function CeoBriefing() {
   );
 }
 
+// ─── Overall Status ───────────────────────────────────────────────────────────
+function deriveStatus(text) {
+  if (!text) return null;
+  const t = text.toLowerCase();
+  if (t.includes('critical') || t.includes('overdue') || t.includes('urgent')) return 'RED';
+  if (t.includes('action required') || t.includes('pending') || t.includes('warning')) return 'AMBER';
+  return 'GREEN';
+}
+const STATUS_DEF = {
+  GREEN: { label: '🟢 GREEN', bg: '#dcfce7', color: '#166534' },
+  AMBER: { label: '🟡 AMBER', bg: '#fef3c7', color: '#92400e' },
+  RED:   { label: '🔴 RED',   bg: '#fee2e2', color: '#991b1b' },
+};
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+export default function CeoBriefing() {
+  if (getUserRole() !== 'ADMIN') return <Navigate to="/" replace />;
+
+  const [briefing, setBriefing]     = useState('');
+  const [bLoading, setBLoading]     = useState(true);
+  const [bTime, setBTime]           = useState(null);
+  const autoRan                     = useRef(false);
+
+  const generate = useCallback(async () => {
+    setBLoading(true);
+    try {
+      const res = await api.post('/api/ceo/briefing');
+      setBriefing(res.data.briefing ?? res.data.answer ?? '');
+      setBTime(new Date());
+    } catch {
+      setBriefing('⚠️ AI briefing unavailable. Please check the backend connection and try again.');
+    } finally {
+      setBLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!autoRan.current) { autoRan.current = true; generate(); }
+  }, [generate]);
+
+  const statusKey = deriveStatus(briefing);
+  const statusDef = STATUS_DEF[statusKey];
+
+  return (
+    <div style={styles.page}>
+      <style>{`
+        @keyframes spin  { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+        @media print { aside, button, .no-print { display: none !important; } }
+      `}</style>
+
+      {/* Hero */}
+      <div style={styles.hero}>
+        <div style={styles.heroLeft}>
+          <h1 style={styles.heroTitle}>📊 CEO Morning Briefing</h1>
+          <p style={styles.heroDate}>{TODAY}</p>
+          <p style={styles.heroOrg}>Envico Supported Living LTD</p>
+        </div>
+        <div style={styles.heroRight}>
+          {bTime && <div style={styles.lastGen}>Last generated: {fmtTime(bTime)}</div>}
+          {statusDef && (
+            <span style={{ ...styles.statusBadge, background: statusDef.bg, color: statusDef.color }}>
+              {statusDef.label}
+            </span>
+          )}
+          <button style={styles.generateBtn} onClick={generate} disabled={bLoading}>
+            {bLoading ? <><Spinner size={14} colour="#fcd34d" /> &nbsp;Generating…</> : '✨ Generate Briefing'}
+          </button>
+        </div>
+      </div>
+
+      {/* Six panels */}
+      <div style={styles.panelGrid}>
+        <UrgentPanel />
+        <OperationsPanel />
+        <PeoplePanel />
+        <FinancePanel />
+        <CompliancePanel />
+        <DigitalOfficePanel />
+      </div>
+
+      {/* AI Narrative */}
+      <AINarrativePanel briefing={briefing} loading={bLoading} timestamp={bTime} />
+
+      {/* Quick Actions */}
+      <div style={styles.section}>
+        <div style={styles.sectionLabel}>Quick Actions</div>
+        <QuickActions onRefresh={generate} />
+      </div>
+
+      {/* History */}
+      <BriefingHistory />
+    </div>
+  );
+}
+
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = {
-  page: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1.5rem',
-  },
+  page: { display: 'flex', flexDirection: 'column', gap: '1.25rem' },
   hero: {
-    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f2744 100%)',
-    borderRadius: '12px',
-    padding: '1.75rem 2rem',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: '1rem',
-    flexWrap: 'wrap',
-    boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+    background: 'linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 60%, #2d2d4e 100%)',
+    borderRadius: '14px', padding: '1.75rem 2rem',
+    display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+    flexWrap: 'wrap', gap: '1.25rem', boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
   },
-  heroLeft: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.3rem',
-  },
-  heroTitle: {
-    fontSize: '1.65rem',
-    fontWeight: 800,
-    color: '#f1f5f9',
-    letterSpacing: '-0.02em',
-  },
-  heroDate: {
-    fontSize: '0.92rem',
-    color: '#94a3b8',
-  },
-  heroCompany: {
-    fontSize: '0.78rem',
-    color: '#475569',
-    textTransform: 'uppercase',
-    letterSpacing: '1.2px',
-    marginTop: '0.1rem',
-  },
-  heroRight: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-    gap: '0.6rem',
-  },
+  heroLeft:  { display: 'flex', flexDirection: 'column', gap: '0.3rem' },
+  heroTitle: { margin: 0, fontSize: '1.5rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.3px' },
+  heroDate:  { margin: 0, fontSize: '0.88rem', color: '#8888bb' },
+  heroOrg:   { margin: 0, fontSize: '0.78rem', color: '#5555aa', letterSpacing: '0.5px' },
+  heroRight: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.6rem' },
+  lastGen:   { fontSize: '0.75rem', color: '#6666aa' },
+  statusBadge: { padding: '4px 14px', borderRadius: '20px', fontSize: '0.82rem', fontWeight: 700 },
   generateBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.4rem',
-    padding: '0.6rem 1.25rem',
-    background: 'linear-gradient(135deg, #d97706, #b45309)',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontWeight: 700,
-    fontSize: '0.88rem',
-    boxShadow: '0 2px 8px rgba(217,119,6,0.35)',
+    padding: '0.6rem 1.4rem',
+    background: 'rgba(217,119,6,0.2)', color: '#fcd34d',
+    border: '1px solid rgba(217,119,6,0.5)', borderRadius: '8px',
+    fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer',
+    display: 'flex', alignItems: 'center', gap: '0.4rem',
   },
+  panelGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' },
+  section:   {
+    background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px',
+    padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+  },
+  sectionLabel: {
+    fontSize: '0.75rem', fontWeight: 700, color: '#6b7280',
+    textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.75rem',
+  },
+};
+
+const p = {
+  card: {
+    background: '#fff', borderRadius: '10px', padding: '1rem 1.1rem',
+    boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #e5e7eb',
+    display: 'flex', flexDirection: 'column', gap: '0.45rem',
+  },
+  panelHeader: { display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' },
+  panelIcon:   { fontSize: '1rem', lineHeight: 1 },
+  panelTitle:  { fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.8px' },
+  statRow:     { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  statLabel:   { fontSize: '0.78rem', color: '#6b7280' },
+  statValue:   { fontSize: '0.88rem', fontWeight: 700, color: '#1a1a2e' },
+  allClear:    { fontSize: '0.85rem', color: '#166534', fontWeight: 600 },
+  subSection:  { display: 'flex', flexDirection: 'column', gap: '0.25rem' },
+  subLabel:    { fontSize: '0.68rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '0.3rem' },
+  eventRow:    { display: 'flex', gap: '0.4rem', alignItems: 'baseline' },
+  eventTime:   { fontSize: '0.7rem', color: '#d97706', fontWeight: 700, minWidth: '38px', whiteSpace: 'nowrap' },
+  eventTitle:  { fontSize: '0.76rem', color: '#374151', lineHeight: 1.3 },
+  emailRow:    { display: 'flex', flexDirection: 'column', padding: '3px 4px', borderRadius: '4px' },
+  emailHighlight: { background: '#fef3c7', borderLeft: '3px solid #fbbf24', paddingLeft: '6px' },
+  emailFrom:   { fontSize: '0.7rem', fontWeight: 700, color: '#1a1a2e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  emailSubject:{ fontSize: '0.68rem', color: '#6b7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  connectBtn:  { padding: '4px 10px', background: '#4285f4', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600, alignSelf: 'flex-start' },
+  emptyNote:   { fontSize: '0.75rem', color: '#9ca3af', fontStyle: 'italic' },
+};
+
+const n = {
+  wrap: {
+    background: 'linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 100%)',
+    borderRadius: '12px', padding: '1.5rem 2rem',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+  },
+  header: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' },
+  title:  { margin: 0, fontSize: '1rem', fontWeight: 800, color: '#fff' },
+  sub:    { fontSize: '0.75rem', color: '#6666aa', marginTop: '3px' },
   printBtn: {
-    padding: '0.6rem 1rem',
-    background: 'rgba(255,255,255,0.08)',
-    color: '#94a3b8',
-    border: '1px solid rgba(255,255,255,0.12)',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontWeight: 600,
-    fontSize: '0.85rem',
+    padding: '5px 12px', background: 'rgba(255,255,255,0.08)',
+    border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px',
+    color: '#8888bb', fontSize: '0.8rem', cursor: 'pointer',
   },
-  lastGen: {
-    fontSize: '0.75rem',
-    color: '#475569',
+  content: { fontSize: '0.9rem', lineHeight: 1.8, color: 'rgba(255,255,255,0.88)', whiteSpace: 'pre-wrap' },
+};
+
+const q = {
+  row: { display: 'flex', gap: '0.6rem', flexWrap: 'wrap' },
+  btn: {
+    padding: '0.5rem 1rem', background: '#f9fafb', border: '1px solid #e5e7eb',
+    borderRadius: '8px', fontSize: '0.85rem', cursor: 'pointer', color: '#374151',
+    fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.3rem',
   },
-  panelGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: '1rem',
+};
+
+const h = {
+  wrap: {
+    background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px',
+    overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
   },
-  panel: {
-    background: '#fff',
-    borderRadius: '10px',
-    borderLeft: '4px solid #e5e7eb',
-    padding: '1.1rem 1.25rem',
-    boxShadow: '0 1px 6px rgba(0,0,0,0.07)',
+  toggle: {
+    width: '100%', padding: '0.9rem 1.25rem', background: '#f9fafb',
+    border: 'none', textAlign: 'left', fontSize: '0.88rem',
+    fontWeight: 600, color: '#374151', cursor: 'pointer',
   },
-  panelTitle: {
-    fontSize: '0.78rem',
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    letterSpacing: '0.8px',
-    marginBottom: '0.75rem',
+  panel:   { padding: '1rem 1.25rem' },
+  msg:     { fontSize: '0.85rem', color: '#9ca3af' },
+  list:    { display: 'flex', flexDirection: 'column', gap: '0.4rem', minWidth: '150px' },
+  histItem: {
+    padding: '0.5rem 0.75rem', border: '1px solid #e5e7eb',
+    borderRadius: '7px', background: '#f9fafb', cursor: 'pointer', textAlign: 'left',
   },
-  statRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '0.3rem 0',
-    borderBottom: '1px solid #f1f5f9',
-  },
-  statLabel: {
-    fontSize: '0.82rem',
-    color: '#6b7280',
-  },
-  statValue: {
-    fontSize: '1rem',
-    fontWeight: 700,
-    color: '#1e293b',
-  },
-  allClear: {
-    color: '#16a34a',
-    fontWeight: 600,
-    fontSize: '0.88rem',
-    padding: '0.25rem 0',
-  },
-  subLabel: {
-    fontSize: '0.72rem',
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    color: '#9ca3af',
-    letterSpacing: '0.6px',
-    marginBottom: '0.35rem',
-  },
-  eventRow: {
-    display: 'flex',
-    gap: '0.5rem',
-    marginBottom: '0.3rem',
-    alignItems: 'flex-start',
-  },
-  eventTime: {
-    fontSize: '0.75rem',
-    color: '#d97706',
-    fontWeight: 700,
-    whiteSpace: 'nowrap',
-    flexShrink: 0,
-    paddingTop: '1px',
-  },
-  eventTitle: {
-    fontSize: '0.8rem',
-    color: '#374151',
-    lineHeight: 1.3,
-  },
-  emailRow: {
-    marginBottom: '0.35rem',
-    paddingBottom: '0.35rem',
-    borderBottom: '1px solid #f9fafb',
-  },
-  emailFrom: {
-    fontSize: '0.75rem',
-    fontWeight: 600,
-    color: '#374151',
-    overflow: 'hidden',
-    whiteSpace: 'nowrap',
-    textOverflow: 'ellipsis',
-  },
-  emailSubject: {
-    fontSize: '0.73rem',
-    color: '#9ca3af',
-    overflow: 'hidden',
-    whiteSpace: 'nowrap',
-    textOverflow: 'ellipsis',
-  },
-  connectBtn: {
-    padding: '0.45rem 0.9rem',
-    background: 'rgba(217,119,6,0.1)',
-    border: '1px solid rgba(217,119,6,0.3)',
-    borderRadius: '6px',
-    color: '#d97706',
-    cursor: 'pointer',
-    fontSize: '0.82rem',
-    fontWeight: 600,
-  },
-  aiPanel: {
-    background: 'linear-gradient(135deg, #0f172a 0%, #1a2744 100%)',
-    borderRadius: '12px',
-    padding: '1.75rem 2rem',
-    boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-  },
-  aiHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '1.25rem',
-  },
-  aiTitle: {
-    fontSize: '1.05rem',
-    fontWeight: 700,
-    color: '#f1f5f9',
-  },
-  aiSubtitle: {
-    fontSize: '0.78rem',
-    color: '#475569',
-    marginTop: '0.15rem',
-  },
-  aiGenerating: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-  },
-  aiBody: {
-    minHeight: '80px',
-  },
-  actionsRow: {
-    display: 'flex',
-    gap: '0.75rem',
-    flexWrap: 'wrap',
-  },
-  actionBtn: {
-    flex: '1 1 auto',
-    minWidth: '140px',
-    padding: '0.7rem 1rem',
-    background: '#fff',
-    border: '1px solid #e5e7eb',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontWeight: 600,
-    fontSize: '0.85rem',
-    color: '#374151',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-    transition: 'background 0.15s, border-color 0.15s',
-  },
-  historyWrap: {
-    background: '#fff',
-    borderRadius: '10px',
-    border: '1px solid #e5e7eb',
-    overflow: 'hidden',
-  },
-  historyToggle: {
-    width: '100%',
-    padding: '0.9rem 1.25rem',
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    fontWeight: 600,
-    fontSize: '0.88rem',
-    color: '#374151',
-    textAlign: 'left',
-    borderBottom: '1px solid #e5e7eb',
-  },
-  historyList: {
-    padding: '0.75rem 1.25rem',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.75rem',
-  },
-  historyItem: {
-    paddingBottom: '0.75rem',
-    borderBottom: '1px solid #f1f5f9',
-  },
-  historyMeta: {
-    display: 'flex',
-    gap: '0.75rem',
-    alignItems: 'center',
-    marginBottom: '0.25rem',
-    fontSize: '0.82rem',
-  },
-  historyViewBtn: {
-    padding: '0.2rem 0.6rem',
-    background: 'rgba(217,119,6,0.1)',
-    border: '1px solid rgba(217,119,6,0.3)',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    color: '#d97706',
-    fontSize: '0.78rem',
-    fontWeight: 600,
+  histActive:  { background: '#eff6ff', border: '1px solid #93c5fd' },
+  histDate:    { fontSize: '0.85rem', fontWeight: 600, color: '#1a1a2e' },
+  histTime:    { fontSize: '0.72rem', color: '#9ca3af' },
+  histContent: {
+    flex: 1, padding: '0.75rem 1rem', background: '#f9fafb',
+    borderRadius: '8px', border: '1px solid #e5e7eb',
+    maxHeight: '300px', overflowY: 'auto',
   },
 };
