@@ -63,6 +63,21 @@ export default function Layout({ children, onLogout }) {
             </NavLink>
           )}
 
+          {/* CEO Briefing — ADMIN only, gold accent */}
+          {role === 'ADMIN' && (
+            <NavLink
+              to="/ceo-briefing"
+              style={({ isActive }) => ({
+                ...styles.navLink,
+                ...styles.ceoLink,
+                ...(isActive ? styles.ceoLinkActive : {}),
+              })}
+            >
+              <span style={styles.navIcon}>📊</span>
+              CEO Briefing
+            </NavLink>
+          )}
+
           {/* AI Assistant — all roles, purple accent */}
           <NavLink
             to="/assistant"
