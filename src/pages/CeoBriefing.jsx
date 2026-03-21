@@ -82,6 +82,7 @@ function UrgentPanel() {
     }).finally(() => setLoading(false));
   }, []);
 
+  const navigate  = useNavigate();
   const allClear = data && data.criticalTasks === 0 && data.complianceIssues === 0 && data.criticalIncidents === 0;
   return (
     <DataPanel title="URGENT" icon="🔴" borderColour="#dc2626" loading={loading}>
@@ -90,6 +91,14 @@ function UrgentPanel() {
         <StatRow label="Compliance actions" value={data?.complianceIssues}  colour={data?.complianceIssues  > 0 ? '#dc2626' : '#166534'} />
         <StatRow label="Critical incidents" value={data?.criticalIncidents} colour={data?.criticalIncidents > 0 ? '#dc2626' : '#166534'} />
       </>}
+      {!loading && (
+        <button
+          onClick={() => navigate('/dashboard?filter=CRITICAL')}
+          style={{ marginTop: '0.5rem', background: 'none', border: 'none', padding: 0, color: '#dc2626', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', textAlign: 'left' }}
+        >
+          View all →
+        </button>
+      )}
     </DataPanel>
   );
 }
