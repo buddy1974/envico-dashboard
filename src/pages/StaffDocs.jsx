@@ -15,6 +15,25 @@ function daysUntilExpiry(date) {
   return Math.ceil((new Date(date) - new Date()) / 86400000);
 }
 
+function exportStaffDocsCSV(docs) {
+  const headers = ['Staff Name', 'Document Type', 'Status', 'Issue Date', 'Expiry Date', 'Days Until Expiry', 'Notes'];
+  const rows = docs.map((d) => [
+    d.staff?.name ?? '',
+    d.type ?? '',
+    d.status ?? '',
+    d.issue_date ? new Date(d.issue_date).toLocaleDateString('en-GB') : '',
+    d.expiry_date ? new Date(d.expiry_date).toLocaleDateString('en-GB') : '',
+    daysUntilExpiry(d.expiry_date) ?? '',
+    d.notes ?? '',
+  ]);
+  const csv = [headers, ...rows].map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `staff-docs-export-${new Date().toISOString().split('T')[0]}.csv`; a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function StaffDocs() {
   const [docs, setDocs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -56,7 +75,10 @@ export default function StaffDocs() {
           <h1 style={styles.title}>Staff Documents</h1>
           <p style={styles.subtitle}>{docs.length} documents</p>
         </div>
-        <button style={styles.createBtn} onClick={() => setShowAdd(true)}>+ Add Document</button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button style={styles.exportBtn} onClick={() => exportStaffDocsCSV(docs)} disabled={docs.length === 0}>Export CSV</button>
+          <button style={styles.createBtn} onClick={() => setShowAdd(true)}>+ Add Document</button>
+        </div>
       </div>
 
       {(expired.length > 0 || expiring.length > 0) && (
@@ -314,6 +336,7 @@ const styles = {
   pageHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' },
   title: { margin: '0 0 0.25rem', fontSize: '1.4rem', fontWeight: 700, color: '#1a1a2e' },
   subtitle: { margin: 0, fontSize: '0.85rem', color: '#6b7280' },
+  exportBtn: { background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: '6px', padding: '0.6rem 1.1rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600 },
   createBtn: { background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.6rem 1.1rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600 },
   alertBanner: { background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1.25rem', fontSize: '0.88rem', color: '#dc2626', lineHeight: 1.5 },
   filters: { display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.25rem' },

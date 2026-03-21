@@ -10,6 +10,29 @@ const STATUS_COLORS = {
 
 const CHECK_TYPES = ['SAFEGUARDING', 'MEDICATION', 'STAFFING', 'DOCUMENTATION', 'TRAINING'];
 
+function exportCompliancePDF(checks) {
+  const rows = checks.map((c) => `
+    <tr>
+      <td>${c.title ?? ''}</td>
+      <td>${c.check_type?.replace('_', ' ') ?? ''}</td>
+      <td>${c.status?.replace('_', ' ') ?? ''}</td>
+      <td>${c.due_date ? new Date(c.due_date).toLocaleDateString('en-GB') : ''}</td>
+      <td>${c.assigned_to ?? ''}</td>
+      <td>${c.service_user ? `${c.service_user.first_name} ${c.service_user.last_name}` : ''}</td>
+    </tr>`).join('');
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Compliance Report</title>
+    <style>body{font-family:Arial,sans-serif;padding:24px;font-size:12px;}h1{font-size:18px;margin-bottom:4px;}p{color:#666;margin:0 0 16px;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ddd;padding:6px 10px;text-align:left;}th{background:#f3f4f6;font-weight:600;font-size:11px;text-transform:uppercase;}</style>
+    </head><body>
+    <h1>Compliance Report</h1><p>Generated ${new Date().toLocaleDateString('en-GB', { weekday:'long',year:'numeric',month:'long',day:'numeric' })}</p>
+    <table><thead><tr><th>Title</th><th>Type</th><th>Status</th><th>Due Date</th><th>Assigned To</th><th>Service User</th></tr></thead>
+    <tbody>${rows}</tbody></table></body></html>`;
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  win.print();
+}
+
 export default function Compliance() {
   const [checks, setChecks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,7 +68,10 @@ export default function Compliance() {
           <h1 style={styles.title}>Compliance</h1>
           <p style={styles.subtitle}>{checks.length} checks</p>
         </div>
-        <button style={styles.createBtn} onClick={() => setShowAdd(true)}>+ Add Check</button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button style={styles.exportBtn} onClick={() => exportCompliancePDF(checks)} disabled={checks.length === 0}>Export PDF</button>
+          <button style={styles.createBtn} onClick={() => setShowAdd(true)}>+ Add Check</button>
+        </div>
       </div>
 
       <div style={styles.summaryGrid}>
@@ -281,6 +307,7 @@ const styles = {
   pageHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' },
   title: { margin: '0 0 0.25rem', fontSize: '1.4rem', fontWeight: 700, color: '#1a1a2e' },
   subtitle: { margin: 0, fontSize: '0.85rem', color: '#6b7280' },
+  exportBtn: { background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: '6px', padding: '0.6rem 1.1rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600 },
   createBtn: { background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.6rem 1.1rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600 },
   summaryGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' },
   card: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '4px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' },

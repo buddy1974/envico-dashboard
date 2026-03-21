@@ -19,6 +19,25 @@ function daysUntil(date) {
   return Math.ceil((new Date(date) - new Date()) / 86400000);
 }
 
+function exportTrainingCSV(records) {
+  const headers = ['Staff Name', 'Training Name', 'Status', 'Completion Date', 'Expiry Date', 'Days Until Expiry', 'Certificate No'];
+  const rows = records.map((r) => [
+    r.staff?.name ?? '',
+    r.training_name ?? '',
+    r.status ?? '',
+    r.completion_date ? new Date(r.completion_date).toLocaleDateString('en-GB') : '',
+    r.expiry_date ? new Date(r.expiry_date).toLocaleDateString('en-GB') : '',
+    daysUntil(r.expiry_date) ?? '',
+    r.certificate_number ?? '',
+  ]);
+  const csv = [headers, ...rows].map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `training-export-${new Date().toISOString().split('T')[0]}.csv`; a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function Training() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -50,7 +69,10 @@ export default function Training() {
           <h1 style={styles.title}>Training</h1>
           <p style={styles.subtitle}>{records.length} records</p>
         </div>
-        <button style={styles.createBtn} onClick={() => setShowAdd(true)}>+ Add Training</button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button style={styles.exportBtn} onClick={() => exportTrainingCSV(records)} disabled={records.length === 0}>Export CSV</button>
+          <button style={styles.createBtn} onClick={() => setShowAdd(true)}>+ Add Training</button>
+        </div>
       </div>
 
       {overdue.length > 0 && (
@@ -307,6 +329,7 @@ const styles = {
   pageHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' },
   title: { margin: '0 0 0.25rem', fontSize: '1.4rem', fontWeight: 700, color: '#1a1a2e' },
   subtitle: { margin: 0, fontSize: '0.85rem', color: '#6b7280' },
+  exportBtn: { background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: '6px', padding: '0.6rem 1.1rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600 },
   createBtn: { background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.6rem 1.1rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600 },
   alertBanner: { background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1.25rem', fontSize: '0.9rem', color: '#dc2626' },
   filterBar: { display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' },

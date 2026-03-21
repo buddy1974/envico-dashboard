@@ -4,6 +4,24 @@ import { connectSocket, subscribe } from '../services/socket';
 import TaskList from '../components/TaskList';
 import TaskDetail from '../components/TaskDetail';
 
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function getCurrentUserName() {
+  try {
+    const u = JSON.parse(localStorage.getItem('user') || '{}');
+    return u.name?.split(' ')[0] || u.email?.split('@')[0] || 'there';
+  } catch { return 'there'; }
+}
+
+function formatDate() {
+  return new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
 const PRIORITY_ORDER = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
 
 const PRIORITY_COLORS = {
@@ -195,6 +213,10 @@ export default function Dashboard({ onLogout = () => {} }) {
   const [activeFilter, setActiveFilter] = useState('All');
   const [selectedTask, setSelectedTask] = useState(null);
   const alertedRef = useRef(loadAlertedIds());
+  const [quickStats, setQuickStats] = useState({ serviceUsers: null, staffCount: null, openIncidents: null });
+  const [search, setSearch] = useState('');
+  const [searchResult, setSearchResult] = useState('');
+  const [searching, setSearching] = useState(false);
 
   function pushNotification(type, title, message) {
     const id = Date.now() + Math.random();
@@ -229,7 +251,34 @@ export default function Dashboard({ onLogout = () => {} }) {
       setSummary(res.data.summary ?? res.data);
     } catch (err) {
       console.error('[fetchSummary] error:', err.response?.status, err.response?.data);
-      // non-critical — do not logout on summary failure
+    }
+  }
+
+  async function fetchQuickStats() {
+    try {
+      const [suRes, incRes] = await Promise.allSettled([
+        api.get('/api/service-users'),
+        api.get('/api/incidents'),
+      ]);
+      setQuickStats({
+        serviceUsers: suRes.status === 'fulfilled' ? (suRes.value.data.serviceUsers ?? suRes.value.data.data ?? []).length : null,
+        openIncidents: incRes.status === 'fulfilled' ? (incRes.value.data.incidents ?? incRes.value.data.data ?? []).filter((i) => i.status !== 'RESOLVED' && i.status !== 'CLOSED').length : null,
+      });
+    } catch { /* non-critical */ }
+  }
+
+  async function handleSearch(e) {
+    e.preventDefault();
+    if (!search.trim()) return;
+    setSearching(true);
+    setSearchResult('');
+    try {
+      const res = await api.post('/api/assistant/ask', { message: search });
+      setSearchResult(res.data.reply ?? res.data.message ?? res.data.response ?? 'No response');
+    } catch {
+      setSearchResult('Search unavailable — assistant is offline.');
+    } finally {
+      setSearching(false);
     }
   }
 
@@ -240,6 +289,7 @@ export default function Dashboard({ onLogout = () => {} }) {
     }
     fetchTasks();
     fetchSummary();
+    fetchQuickStats();
     connectSocket();
 
     const summaryInterval = setInterval(fetchSummary, 30000);
@@ -311,10 +361,61 @@ export default function Dashboard({ onLogout = () => {} }) {
     return true;
   });
 
+  const criticalCount = summary.critical ?? 0;
+
   return (
     <div>
       <NotificationToasts notifications={notifications} onDismiss={dismissNotification} />
       <TaskDetail task={selectedTask} onClose={() => setSelectedTask(null)} />
+
+      {/* Greeting + Quick Stats */}
+      <div style={styles.greetingBlock}>
+        <div>
+          <h1 style={styles.greetingText}>{getGreeting()}, {getCurrentUserName()} 👋</h1>
+          <p style={styles.greetingDate}>{formatDate()}</p>
+        </div>
+      </div>
+
+      <div style={styles.quickStatsRow}>
+        <div style={styles.qCard}>
+          <span style={{ ...styles.qValue, color: '#2563eb' }}>{quickStats.serviceUsers ?? '—'}</span>
+          <span style={styles.qLabel}>Total Service Users</span>
+        </div>
+        <div style={styles.qCard}>
+          <span style={{ ...styles.qValue, color: '#16a34a' }}>{summary.inProgress ?? summary.in_progress ?? '—'}</span>
+          <span style={styles.qLabel}>Tasks In Progress</span>
+        </div>
+        <div style={styles.qCard}>
+          <span style={{ ...styles.qValue, color: criticalCount > 0 ? '#dc2626' : '#6b7280' }}>{criticalCount || '—'}</span>
+          <span style={styles.qLabel}>Critical Tasks</span>
+        </div>
+        <div style={styles.qCard}>
+          <span style={{ ...styles.qValue, color: (quickStats.openIncidents ?? 0) > 0 ? '#ea580c' : '#6b7280' }}>{quickStats.openIncidents ?? '—'}</span>
+          <span style={styles.qLabel}>Open Incidents</span>
+        </div>
+      </div>
+
+      {/* Global Search */}
+      <div style={styles.searchWrap}>
+        <form onSubmit={handleSearch} style={styles.searchForm}>
+          <input
+            style={styles.searchInput}
+            placeholder="Ask AI anything — e.g. 'Show overdue tasks' or 'Which staff are on duty?'"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <button style={styles.searchBtn} type="submit" disabled={searching}>
+            {searching ? '...' : '🔍 Ask'}
+          </button>
+        </form>
+        {searchResult && (
+          <div style={styles.searchResult}>
+            <strong style={{ fontSize: '0.8rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>AI Response</strong>
+            <p style={{ margin: '0.5rem 0 0', fontSize: '0.9rem', color: '#1f2937', lineHeight: 1.6 }}>{searchResult}</p>
+          </div>
+        )}
+      </div>
+
       <div style={styles.main}>
         <h2 style={styles.heading}>Tasks</h2>
         <SummaryCards summary={summary} />
@@ -350,6 +451,83 @@ export default function Dashboard({ onLogout = () => {} }) {
 }
 
 const styles = {
+  greetingBlock: {
+    marginBottom: '1.25rem',
+  },
+  greetingText: {
+    margin: '0 0 0.2rem',
+    fontSize: '1.5rem',
+    fontWeight: 700,
+    color: '#1a1a2e',
+  },
+  greetingDate: {
+    margin: 0,
+    fontSize: '0.875rem',
+    color: '#6b7280',
+  },
+  quickStatsRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, 1fr)',
+    gap: '0.75rem',
+    marginBottom: '1.25rem',
+  },
+  qCard: {
+    background: '#fff',
+    border: '1px solid #e5e7eb',
+    borderRadius: '8px',
+    padding: '1rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+  },
+  qValue: {
+    fontSize: '1.75rem',
+    fontWeight: 700,
+    lineHeight: 1,
+  },
+  qLabel: {
+    fontSize: '0.75rem',
+    color: '#6b7280',
+    fontWeight: 500,
+    textTransform: 'uppercase',
+    letterSpacing: '0.4px',
+  },
+  searchWrap: {
+    marginBottom: '1.25rem',
+  },
+  searchForm: {
+    display: 'flex',
+    gap: '0.5rem',
+  },
+  searchInput: {
+    flex: 1,
+    padding: '0.6rem 0.875rem',
+    border: '1px solid #d1d5db',
+    borderRadius: '8px',
+    fontSize: '0.9rem',
+    background: '#fff',
+    boxSizing: 'border-box',
+  },
+  searchBtn: {
+    padding: '0.6rem 1.1rem',
+    background: '#1a1a2e',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '0.9rem',
+    cursor: 'pointer',
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+  },
+  searchResult: {
+    marginTop: '0.625rem',
+    background: '#fff',
+    border: '1px solid #e5e7eb',
+    borderRadius: '8px',
+    padding: '1rem',
+    boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+  },
   main: {
     background: '#fff',
     borderRadius: '8px',

@@ -1,4 +1,6 @@
+import { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import api from '../services/api';
 
 // roles: which roles can see this item
 // undefined = all roles
@@ -47,6 +49,31 @@ export default function Layout({ children, onLogout }) {
   const navigate = useNavigate();
   const user     = getCurrentUser();
   const role     = user.role || 'STAFF';
+  const [criticalTasks, setCriticalTasks] = useState([]);
+  const [bellOpen, setBellOpen] = useState(false);
+  const bellRef = useRef(null);
+
+  useEffect(() => {
+    fetchCritical();
+    const interval = setInterval(fetchCritical, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  async function fetchCritical() {
+    try {
+      const res = await api.get('/api/tasks?priority=CRITICAL&status=PENDING');
+      setCriticalTasks(res.data.tasks ?? res.data ?? []);
+    } catch { /* silent */ }
+  }
+
+  useEffect(() => {
+    if (!bellOpen) return;
+    function handleClick(e) {
+      if (bellRef.current && !bellRef.current.contains(e.target)) setBellOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [bellOpen]);
 
   function logout() {
     localStorage.removeItem('token');
@@ -158,6 +185,37 @@ export default function Layout({ children, onLogout }) {
             System Overview
           </NavLink>
         )}
+
+        {/* Notification bell */}
+        <div ref={bellRef} style={{ position: 'relative', margin: '0 0.75rem 0.25rem' }}>
+          <button
+            style={styles.bellBtn}
+            onClick={() => setBellOpen((o) => !o)}
+            title="Critical notifications"
+          >
+            <span>🔔</span>
+            {criticalTasks.length > 0 && (
+              <span style={styles.bellBadge}>{criticalTasks.length > 9 ? '9+' : criticalTasks.length}</span>
+            )}
+          </button>
+          {bellOpen && (
+            <div style={styles.bellDropdown}>
+              <p style={styles.bellTitle}>
+                {criticalTasks.length === 0 ? 'No critical tasks' : `${criticalTasks.length} critical task${criticalTasks.length > 1 ? 's' : ''}`}
+              </p>
+              {criticalTasks.slice(0, 5).map((t) => (
+                <div key={t.id} style={styles.bellItem}>
+                  <span style={{ fontSize: '0.75rem', color: '#dc2626', fontWeight: 700 }}>🚨 CRITICAL</span>
+                  <span style={{ fontSize: '0.85rem', color: '#1f2937', display: 'block', marginTop: '2px' }}>{t.title}</span>
+                  {t.referral_id && <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>Ref: {t.referral_id}</span>}
+                </div>
+              ))}
+              {criticalTasks.length > 5 && (
+                <p style={{ margin: '0.5rem 0 0', fontSize: '0.78rem', color: '#9ca3af', textAlign: 'center' }}>+{criticalTasks.length - 5} more</p>
+              )}
+            </div>
+          )}
+        </div>
 
         <button style={styles.logoutBtn} onClick={logout}>
           <span>↩</span> Logout
@@ -298,6 +356,56 @@ const styles = {
     background: '#2d2d4e',
     color: '#ffffff',
     border: '1px solid #4a4a6e',
+  },
+  bellBtn: {
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    padding: '0.55rem 0.75rem',
+    background: 'transparent',
+    border: '1px solid #2d2d4e',
+    borderRadius: '6px',
+    color: '#8888aa',
+    cursor: 'pointer',
+    fontSize: '1rem',
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: '4px',
+    right: '6px',
+    background: '#dc2626',
+    color: '#fff',
+    borderRadius: '999px',
+    fontSize: '0.65rem',
+    fontWeight: 700,
+    padding: '1px 5px',
+    lineHeight: 1.4,
+  },
+  bellDropdown: {
+    position: 'absolute',
+    bottom: '110%',
+    left: 0,
+    width: '260px',
+    background: '#1e1e35',
+    border: '1px solid #2d2d4e',
+    borderRadius: '8px',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+    zIndex: 2000,
+    padding: '0.75rem',
+  },
+  bellTitle: {
+    margin: '0 0 0.5rem',
+    fontSize: '0.78rem',
+    fontWeight: 700,
+    color: '#8888aa',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  },
+  bellItem: {
+    padding: '0.5rem 0',
+    borderBottom: '1px solid #2d2d4e',
   },
   logoutBtn: {
     display: 'flex',
