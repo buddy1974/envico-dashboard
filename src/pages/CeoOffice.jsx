@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import api from '../services/api';
+
+function getUserRole() {
+  try { return JSON.parse(localStorage.getItem('user') || '{}').role ?? null; } catch { return null; }
+}
 
 const TODAY = new Date().toLocaleDateString('en-GB', {
   weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
@@ -475,6 +480,8 @@ function ComposeModal({ prefill, onClose }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function CeoOffice() {
+  if (getUserRole() !== 'ADMIN') return <Navigate to="/" replace />;
+
   const [compose, setCompose] = useState(null); // null | { to, subject, body }
 
   function handleReply(msg) {

@@ -1,28 +1,31 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 
+// roles: which roles can see this item
+// undefined = all roles
 const NAV_ITEMS = [
-  { to: '/', label: 'Dashboard', icon: '🏠' },
-  { to: '/rota', label: 'Rota', icon: '📅' },
-  { to: '/service-users', label: 'Service Users', icon: '👥' },
-  { to: '/incidents', label: 'Incidents', icon: '🚨' },
-  { to: '/medications', label: 'Medications', icon: '💊' },
-  { to: '/care-plans', label: 'Care Plans', icon: '📋' },
-  { to: '/invoices', label: 'Invoices', icon: '💰' },
-  { to: '/payroll', label: 'Payroll', icon: '🧾' },
-  { to: '/finance', label: 'Finance', icon: '📊' },
-  { to: '/training', label: 'Training', icon: '📚' },
-  { to: '/recruitment', label: 'Recruitment', icon: '🧑' },
-  { to: '/compliance', label: 'Compliance', icon: '✅' },
-  { to: '/staff-docs', label: 'Staff Docs', icon: '📄' },
+  { to: '/',             label: 'Dashboard',     icon: '🏠' },
+  { to: '/rota',         label: 'Rota',           icon: '📅' },
+  { to: '/service-users',label: 'Service Users',  icon: '👥' },
+  { to: '/incidents',    label: 'Incidents',      icon: '🚨' },
+  { to: '/medications',  label: 'Medications',    icon: '💊' },
+  { to: '/care-plans',   label: 'Care Plans',     icon: '📋' },
+  { to: '/training',     label: 'Training',       icon: '📚' },
+  { to: '/invoices',     label: 'Invoices',       icon: '💰',  roles: ['ADMIN', 'MANAGER'] },
+  { to: '/payroll',      label: 'Payroll',        icon: '🧾',  roles: ['ADMIN', 'MANAGER'] },
+  { to: '/finance',      label: 'Finance',        icon: '📊',  roles: ['ADMIN', 'MANAGER'] },
+  { to: '/recruitment',  label: 'Recruitment',    icon: '🧑',  roles: ['ADMIN', 'MANAGER'] },
+  { to: '/compliance',   label: 'Compliance',     icon: '✅',  roles: ['ADMIN', 'MANAGER'] },
+  { to: '/staff-docs',   label: 'Staff Docs',     icon: '📄',  roles: ['ADMIN', 'MANAGER'] },
 ];
 
-function getCurrentUserRole() {
-  try { return JSON.parse(localStorage.getItem('user') || '{}').role ?? null; } catch { return null; }
+function getCurrentUser() {
+  try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; }
 }
 
 export default function Layout({ children, onLogout }) {
   const navigate = useNavigate();
-  const userRole = getCurrentUserRole();
+  const user     = getCurrentUser();
+  const role     = user.role || 'STAFF';
 
   function logout() {
     localStorage.removeItem('token');
@@ -30,6 +33,10 @@ export default function Layout({ children, onLogout }) {
     onLogout();
     navigate('/login');
   }
+
+  const visibleItems = NAV_ITEMS.filter((item) =>
+    !item.roles || item.roles.includes(role)
+  );
 
   return (
     <div style={styles.root}>
@@ -40,20 +47,22 @@ export default function Layout({ children, onLogout }) {
         </div>
 
         <nav style={styles.nav}>
-          {/* CEO Office — pinned at top, gold accent */}
-          <NavLink
-            to="/ceo-office"
-            style={({ isActive }) => ({
-              ...styles.navLink,
-              ...styles.ceoLink,
-              ...(isActive ? styles.ceoLinkActive : {}),
-            })}
-          >
-            <span style={styles.navIcon}>👔</span>
-            CEO Office
-          </NavLink>
+          {/* CEO Office — ADMIN only, gold accent */}
+          {role === 'ADMIN' && (
+            <NavLink
+              to="/ceo-office"
+              style={({ isActive }) => ({
+                ...styles.navLink,
+                ...styles.ceoLink,
+                ...(isActive ? styles.ceoLinkActive : {}),
+              })}
+            >
+              <span style={styles.navIcon}>👔</span>
+              CEO Office
+            </NavLink>
+          )}
 
-          {/* AI Assistant — accent colour */}
+          {/* AI Assistant — all roles, purple accent */}
           <NavLink
             to="/assistant"
             style={({ isActive }) => ({
@@ -68,7 +77,7 @@ export default function Layout({ children, onLogout }) {
 
           <div style={styles.divider} />
 
-          {NAV_ITEMS.map((item) => (
+          {visibleItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -84,7 +93,8 @@ export default function Layout({ children, onLogout }) {
           ))}
         </nav>
 
-        {userRole === 'ADMIN' && (
+        {/* Users — ADMIN only, red accent, inside sidebar bottom */}
+        {role === 'ADMIN' && (
           <NavLink
             to="/users"
             style={({ isActive }) => ({
@@ -205,12 +215,18 @@ const styles = {
     textAlign: 'center',
   },
   adminLink: {
-    margin: '0.5rem 0.75rem 0.25rem',
+    margin: '0 0.75rem 0.25rem',
     background: 'rgba(220, 38, 38, 0.1)',
     color: '#fca5a5',
     border: '1px solid rgba(220, 38, 38, 0.25)',
     fontWeight: 600,
     borderRadius: '6px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.6rem',
+    padding: '0.55rem 0.75rem',
+    textDecoration: 'none',
+    fontSize: '0.88rem',
   },
   adminLinkActive: {
     background: 'rgba(220, 38, 38, 0.25)',
