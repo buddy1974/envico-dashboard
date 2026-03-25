@@ -186,6 +186,21 @@ export default function Layout({ children, onLogout }) {
           </NavLink>
         )}
 
+        {/* Agent Monitor — ADMIN only, green terminal accent */}
+        {role === 'ADMIN' && (
+          <NavLink
+            to="/agents"
+            style={({ isActive }) => ({
+              ...styles.navLink,
+              ...styles.agentLink,
+              ...(isActive ? styles.agentLinkActive : {}),
+            })}
+          >
+            <span style={styles.navIcon}>⚡</span>
+            Agents
+          </NavLink>
+        )}
+
         {/* Notification bell */}
         <div ref={bellRef} style={{ position: 'relative', margin: '0 0.75rem 0.25rem' }}>
           <button
@@ -356,6 +371,27 @@ const styles = {
     background: '#2d2d4e',
     color: '#ffffff',
     border: '1px solid #4a4a6e',
+  },
+  agentLink: {
+    margin: '0 0.75rem 0.25rem',
+    background: 'rgba(58, 181, 74, 0.08)',
+    color: '#3ab54a',
+    border: '1px solid rgba(58, 181, 74, 0.25)',
+    fontWeight: 600,
+    fontFamily: 'monospace',
+    letterSpacing: '0.04em',
+    borderRadius: '6px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.6rem',
+    padding: '0.55rem 0.75rem',
+    textDecoration: 'none',
+    fontSize: '0.85rem',
+  },
+  agentLinkActive: {
+    background: 'rgba(58, 181, 74, 0.2)',
+    color: '#6ee77a',
+    border: '1px solid rgba(58, 181, 74, 0.5)',
   },
   bellBtn: {
     position: 'relative',

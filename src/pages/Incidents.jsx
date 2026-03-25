@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import OCRDocumentScanner from '../components/OCRDocumentScanner';
+import AIWriteButton from '../components/AIWriteButton';
 
 const SEVERITY_COLORS = {
   CRITICAL: '#dc2626',
@@ -173,6 +175,16 @@ function ReportIncidentModal({ onClose, onCreated }) {
         </div>
         <form onSubmit={submit} style={modalStyles.body}>
           {error && <p style={{ color: '#dc2626', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</p>}
+          <OCRDocumentScanner
+            context="incident"
+            label="Scan handwritten incident note"
+            onImport={(data) => {
+              if (data.description) set('description', data.description);
+              if (data.severity) set('severity', data.severity);
+              if (data.incident_date) set('incident_date', data.incident_date);
+              if (data.immediate_action_taken) set('action_taken', data.immediate_action_taken);
+            }}
+          />
           <Field label="Service User" required>
             <select style={formStyles.input} value={form.service_user_id} onChange={(e) => set('service_user_id', e.target.value)} required>
               <option value="">Select service user...</option>
@@ -204,14 +216,22 @@ function ReportIncidentModal({ onClose, onCreated }) {
           <Field label="Location">
             <input style={formStyles.input} value={form.location} onChange={(e) => set('location', e.target.value)} placeholder="Where did it happen?" />
           </Field>
-          <Field label="Description" required>
+          <div style={{ marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+              <label style={formStyles.label}>Description *</label>
+              <AIWriteButton
+                value={form.description}
+                field="incident_description"
+                onResult={(text) => set('description', text)}
+              />
+            </div>
             <textarea
               style={{ ...formStyles.input, height: '80px', resize: 'vertical' }}
               value={form.description}
               onChange={(e) => set('description', e.target.value)}
               required
             />
-          </Field>
+          </div>
           <button style={formStyles.submit} type="submit" disabled={submitting}>
             {submitting ? 'Submitting...' : 'Submit Report'}
           </button>

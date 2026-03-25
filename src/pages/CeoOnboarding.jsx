@@ -3,169 +3,244 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
 function getUserRole() {
-  try { return JSON.parse(localStorage.getItem('user') || '{}').role ?? null; } catch { return null; }
+  try {
+    const stored = JSON.parse(localStorage.getItem('user') || '{}');
+    if (stored.role) return stored.role;
+    const token = localStorage.getItem('token');
+    if (token) return JSON.parse(atob(token.split('.')[1])).role ?? null;
+    return null;
+  } catch { return null; }
 }
 
-// ─── Checklist config ─────────────────────────────────────────────────────────
-const CHECKLIST = [
-  { id: 'staff',    label: 'Create your first Staff member',         to: '/users' },
-  { id: 'su',       label: 'Add a Service User',                     to: '/service-users' },
-  { id: 'rota',     label: 'Set up a Rota',                          to: '/rota' },
-  { id: 'careplan', label: 'Create a Care Plan',                     to: '/care-plans' },
-  { id: 'google',   label: 'Connect Google Account for CEO Office',  to: '/ceo-office' },
-  { id: 'import',   label: 'Import existing data',                   to: '/import' },
-  { id: 'family',   label: 'Create a Family Portal account',         to: '/users' },
-  { id: 'briefing', label: 'Run your first CEO Briefing',            to: '/ceo-briefing' },
-];
-
-const CHECKLIST_KEY = 'envico_ceo_checklist';
-
-function loadChecked() {
-  try { return JSON.parse(localStorage.getItem(CHECKLIST_KEY) || '{}'); } catch { return {}; }
-}
-function saveChecked(obj) { localStorage.setItem(CHECKLIST_KEY, JSON.stringify(obj)); }
-
-// ─── Modules grid config ──────────────────────────────────────────────────────
-const SECTIONS = [
+// ─── Module definitions — all 16 ─────────────────────────────────────────────
+const MODULES = [
   {
-    title: 'Care Operations',
-    colour: '#3b82f6',
-    pages: [
-      { to: '/',              icon: '🏠', label: 'Dashboard',     desc: 'Task overview and critical alerts' },
-      { to: '/service-users', icon: '👥', label: 'Service Users', desc: 'Manage all service users' },
-      { to: '/care-plans',    icon: '📋', label: 'Care Plans',    desc: 'Care planning and reviews' },
-      { to: '/incidents',     icon: '🚨', label: 'Incidents',     desc: 'Incident reporting and tracking' },
-      { to: '/medications',   icon: '💊', label: 'Medications',   desc: 'Medication management and MAR' },
-      { to: '/rota',          icon: '📅', label: 'Rota',          desc: 'Staff scheduling and shifts' },
-    ],
+    to: '/dashboard',
+    icon: '🏠',
+    label: 'Task Dashboard',
+    desc: 'Daily task management and critical alerts',
+    phase: 1,
+    color: '#3b82f6',
   },
   {
-    title: 'Finance',
-    colour: '#16a34a',
-    pages: [
-      { to: '/invoices', icon: '💰', label: 'Invoices', desc: 'Billing and invoice management' },
-      { to: '/payroll',  icon: '🧾', label: 'Payroll',  desc: 'Staff payroll preparation' },
-      { to: '/finance',  icon: '📊', label: 'Finance',  desc: 'Income, expenses and transactions' },
-    ],
+    to: '/rota',
+    icon: '📅',
+    label: 'Rota & Shifts',
+    desc: 'Staff scheduling, clock-in and shift gaps',
+    phase: 8,
+    color: '#06b6d4',
   },
   {
-    title: 'HR & Compliance',
-    colour: '#d97706',
-    pages: [
-      { to: '/training',    icon: '📚', label: 'Training',    desc: 'Staff training tracker' },
-      { to: '/recruitment', icon: '🧑', label: 'Recruitment', desc: 'Job applications pipeline' },
-      { to: '/compliance',  icon: '✅', label: 'Compliance',  desc: 'CQC compliance checks' },
-      { to: '/staff-docs',  icon: '📄', label: 'Staff Docs',  desc: 'DBS and document management' },
-      { to: '/users',       icon: '👤', label: 'Users',       desc: 'Team account management' },
-    ],
+    to: '/service-users',
+    icon: '👥',
+    label: 'Service Users',
+    desc: 'Resident profiles, funding and care overview',
+    phase: 2,
+    color: '#3b82f6',
   },
   {
-    title: 'AI & Automation',
-    colour: '#7c3aed',
-    pages: [
-      { to: '/assistant',      icon: '🤖', label: 'AI Assistant',  desc: 'Chat with your care AI' },
-      { to: '/ceo-office',     icon: '👔', label: 'CEO Office',     desc: 'Email, calendar, commands' },
-      { to: '/ceo-briefing',   icon: '📊', label: 'CEO Briefing',   desc: 'Daily executive summary' },
-      { to: '/import',         icon: '📥', label: 'Import Data',    desc: 'AI-powered data migration' },
-    ],
-  },
-];
-
-// ─── System cards ─────────────────────────────────────────────────────────────
-const SYSTEM_CARDS = [
-  {
-    title: 'Care Operations',
-    icon: '🏥',
-    colour: '#3b82f6',
-    items: ['Service Users', 'Care Plans', 'Incidents', 'Medications', 'Rota'],
-    to: '/',
-    ctaLabel: 'Go to Dashboard →',
+    to: '/incidents',
+    icon: '🚨',
+    label: 'Incidents',
+    desc: 'Incident reporting, tracking and resolution',
+    phase: 2,
+    color: '#ef4444',
   },
   {
-    title: 'Finance & HR',
-    icon: '💼',
-    colour: '#16a34a',
-    items: ['Invoices', 'Payroll', 'Finance', 'Recruitment', 'Training'],
-    to: '/finance',
-    ctaLabel: 'Go to Finance →',
+    to: '/medications',
+    icon: '💊',
+    label: 'Medications',
+    desc: 'EMAR, MAR charts and medication records',
+    phase: 2,
+    color: '#3b82f6',
   },
   {
-    title: 'Compliance & Docs',
+    to: '/care-plans',
     icon: '📋',
-    colour: '#d97706',
-    items: ['CQC Compliance', 'Staff Docs', 'DBS Tracking'],
-    to: '/compliance',
-    ctaLabel: 'Go to Compliance →',
+    label: 'Care Plans',
+    desc: 'Person-centred care documentation and reviews',
+    phase: 2,
+    color: '#3b82f6',
   },
   {
-    title: 'AI & Automation',
-    icon: '🤖',
-    colour: '#7c3aed',
-    items: ['AI Assistant', 'CEO Office', 'CEO Briefing', 'Data Import'],
+    to: '/invoices',
+    icon: '💰',
+    label: 'Invoices',
+    desc: 'Billing, invoice management and chase workflow',
+    phase: 3,
+    color: '#16a34a',
+  },
+  {
+    to: '/payroll',
+    icon: '🧾',
+    label: 'Payroll',
+    desc: 'Staff payroll preparation and approval',
+    phase: 3,
+    color: '#16a34a',
+  },
+  {
+    to: '/finance',
+    icon: '📊',
+    label: 'Finance',
+    desc: 'Transactions, income and financial overview',
+    phase: 3,
+    color: '#16a34a',
+  },
+  {
+    to: '/training',
+    icon: '📚',
+    label: 'Training',
+    desc: 'Staff training and Oliver McGowan compliance',
+    phase: 4,
+    color: '#d97706',
+  },
+  {
+    to: '/recruitment',
+    icon: '🧑',
+    label: 'Recruitment',
+    desc: 'Job applications pipeline and hiring workflow',
+    phase: 4,
+    color: '#d97706',
+  },
+  {
+    to: '/compliance',
+    icon: '✅',
+    label: 'Compliance',
+    desc: 'CQC compliance monitoring and action tracker',
+    phase: 4,
+    color: '#d97706',
+  },
+  {
+    to: '/staff-docs',
+    icon: '📄',
+    label: 'Staff Documents',
+    desc: 'DBS certificates and document expiry tracking',
+    phase: 4,
+    color: '#d97706',
+  },
+  {
+    to: '/ceo-office',
+    icon: '👔',
+    label: 'CEO Office',
+    desc: 'Gmail integration, Google Calendar and AI commands',
+    phase: 7,
+    color: '#b45309',
+  },
+  {
     to: '/assistant',
-    ctaLabel: 'Go to AI Assistant →',
+    icon: '🤖',
+    label: 'AI Assistant',
+    desc: 'Donna AI — natural language care queries powered by Claude',
+    phase: 5,
+    color: '#7c3aed',
+  },
+  {
+    to: '/agents',
+    icon: '⚡',
+    label: 'Agents Monitor',
+    desc: 'SYS.AGENTS — live terminal view of all automation agents',
+    phase: 8,
+    color: '#3ab54a',
   },
 ];
 
-// ─── System Health ────────────────────────────────────────────────────────────
-function SystemHealth() {
-  const [health, setHealth] = useState({
-    api:       { label: 'Backend API',     status: 'checking' },
-    ai:        { label: 'AI Assistant',    status: 'checking' },
-    n8n:       { label: 'n8n Automation',  status: 'checking' },
-    email:     { label: 'Email Service',   status: 'checking' },
-  });
+// ─── Status strip ─────────────────────────────────────────────────────────────
+const METRIC_DEFS = [
+  { id: 'tasks',      icon: '📌', label: 'Open Tasks',        color: '#3b82f6' },
+  { id: 'referrals',  icon: '📥', label: 'Referrals',         color: '#7c3aed' },
+  { id: 'compliance', icon: '✅', label: 'Compliance Due',     color: '#d97706' },
+  { id: 'training',   icon: '📚', label: 'Training Overdue',  color: '#ef4444' },
+];
 
-  useEffect(() => {
-    // Check API
-    api.get('/api/health').then(() => {
-      setHealth((h) => ({ ...h, api: { ...h.api, status: 'live' } }));
-    }).catch(() => {
-      setHealth((h) => ({ ...h, api: { ...h.api, status: 'error' } }));
-    });
+// Wraps an api call with a 5-second hard timeout — always resolves, never hangs
+function withTimeout(promise, ms = 5000) {
+  const timer = new Promise((resolve) => setTimeout(() => resolve(null), ms));
+  return Promise.race([promise.then((r) => r).catch(() => null), timer]);
+}
 
-    // Check AI (just see if assistant endpoint exists)
-    api.get('/api/assistant/status').then(() => {
-      setHealth((h) => ({ ...h, ai: { ...h.ai, status: 'live' } }));
-    }).catch((e) => {
-      setHealth((h) => ({ ...h, ai: { ...h.ai, status: e.response?.status === 404 ? 'live' : 'error' } }));
-    });
+async function fetchMetrics() {
+  const [tasksRes, referralsRes, complianceRes, trainingRes] = await Promise.all([
+    withTimeout(api.get('/api/tasks/summary')),
+    withTimeout(api.get('/api/referrals')),
+    withTimeout(api.get('/api/compliance')),
+    withTimeout(api.get('/api/training/overdue')),
+  ]);
 
-    // Check n8n
-    api.get('/api/n8n/status').then(() => {
-      setHealth((h) => ({ ...h, n8n: { ...h.n8n, status: 'live' } }));
-    }).catch((e) => {
-      setHealth((h) => ({ ...h, n8n: { ...h.n8n, status: e.response?.status === 404 ? 'unknown' : 'error' } }));
-    });
+  // tasks: { data: { open, total, count } } or { open, total }
+  const tasks = (() => {
+    if (!tasksRes) return '—';
+    const d = tasksRes.data?.data ?? tasksRes.data ?? {};
+    const v = d.open ?? d.total ?? d.count;
+    return v != null ? v : '—';
+  })();
 
-    // Check email
-    api.get('/api/email/status').then(() => {
-      setHealth((h) => ({ ...h, email: { ...h.email, status: 'live' } }));
-    }).catch((e) => {
-      setHealth((h) => ({ ...h, email: { ...h.email, status: e.response?.status === 404 ? 'unknown' : 'error' } }));
-    });
-  }, []);
+  // referrals: array | { data: array } | { referrals: array } | { total }
+  const referrals = (() => {
+    if (!referralsRes) return '—';
+    const raw = referralsRes.data;
+    if (Array.isArray(raw)) return raw.length;
+    if (Array.isArray(raw?.data)) return raw.data.length;
+    if (Array.isArray(raw?.referrals)) return raw.referrals.length;
+    const v = raw?.total ?? raw?.count;
+    return v != null ? v : '—';
+  })();
 
-  const dot = (status) => ({
-    live:     { colour: '#16a34a', label: 'Live' },
-    error:    { colour: '#dc2626', label: 'Error' },
-    unknown:  { colour: '#d97706', label: 'Unknown' },
-    checking: { colour: '#9ca3af', label: 'Checking…' },
-  }[status] ?? { colour: '#9ca3af', label: '—' });
+  // compliance: array of items — count DUE or OVERDUE
+  const compliance = (() => {
+    if (!complianceRes) return '—';
+    const d = complianceRes.data?.data ?? complianceRes.data ?? [];
+    const items = Array.isArray(d) ? d : [];
+    return items.filter((i) => i.status === 'DUE' || i.status === 'OVERDUE').length;
+  })();
+
+  // training overdue: array | { data: array } | { total }
+  const training = (() => {
+    if (!trainingRes) return '—';
+    const d = trainingRes.data?.data ?? trainingRes.data ?? [];
+    if (Array.isArray(d)) return d.length;
+    const v = d?.total ?? d?.count;
+    return v != null ? v : '—';
+  })();
+
+  return { tasks, referrals, compliance, training };
+}
+
+function StatusStrip() {
+  const EMPTY = { tasks: null, referrals: null, compliance: null, training: null };
+  const [values, setValues] = useState(EMPTY);
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function load() {
+    setRefreshing(true);
+    setValues(EMPTY);
+    const result = await fetchMetrics();
+    setValues(result);
+    setRefreshing(false);
+  }
+
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div style={s.section}>
-      <h2 style={s.sectionTitle}>System Health</h2>
-      <div style={s.healthGrid}>
-        {Object.entries(health).map(([key, svc]) => {
-          const d = dot(svc.status);
+    <div>
+      <div style={s.stripHeader}>
+        <span style={s.stripLabel}>Live status</span>
+        <button style={{ ...s.refreshBtn, opacity: refreshing ? 0.5 : 1 }} onClick={load} disabled={refreshing}>
+          {refreshing ? '···' : '↻ Refresh'}
+        </button>
+      </div>
+      <div style={s.strip}>
+        {METRIC_DEFS.map((m) => {
+          const val = values[m.id];
           return (
-            <div key={key} style={s.healthCard}>
-              <div style={{ ...s.healthDot, background: d.colour }} />
-              <div>
-                <div style={s.healthLabel}>{svc.label}</div>
-                <div style={{ ...s.healthStatus, color: d.colour }}>{d.label}</div>
+            <div key={m.id} style={s.metricCard}>
+              <div style={s.metricTop}>
+                <span style={s.metricIcon}>{m.icon}</span>
+                <span style={{ ...s.metricDot, background: m.color }} />
               </div>
+              <div style={{ ...s.metricVal, color: m.color }}>
+                {val === null ? <span style={s.metricSpin}>···</span> : val}
+              </div>
+              <div style={s.metricLabel}>{m.label}</div>
             </div>
           );
         })}
@@ -174,212 +249,573 @@ function SystemHealth() {
   );
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+// ─── Module card ──────────────────────────────────────────────────────────────
+function ModuleCard({ mod, onOpen }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <div
+      style={{ ...s.modCard, ...(hover ? { ...s.modCardHover, borderColor: mod.color } : {}) }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <div style={s.modTop}>
+        <span style={s.modIcon}>{mod.icon}</span>
+        <span style={{ ...s.modPhase, color: mod.color, borderColor: mod.color }}>P{mod.phase}</span>
+      </div>
+      <div style={s.modName}>{mod.label}</div>
+      <div style={s.modDesc}>{mod.desc}</div>
+      <div style={s.modFooter}>
+        <span style={s.modLive}>● LIVE</span>
+        <button
+          style={{ ...s.modBtn, background: mod.color }}
+          onClick={() => onOpen(mod.to)}
+        >
+          Open
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── System Health row ────────────────────────────────────────────────────────
+const HEALTH_PILLS = [
+  { id: 'api', label: 'Backend API' },
+  { id: 'db',  label: 'Database' },
+  { id: 'n8n', label: 'n8n Automation' },
+];
+
+const STATUS_CONFIG = {
+  ok:       { color: '#16a34a', bg: '#f0fdf4', border: '#86efac', text: 'OK' },
+  error:    { color: '#dc2626', bg: '#fef2f2', border: '#fca5a5', text: 'ERROR' },
+  unknown:  { color: '#d97706', bg: '#fffbeb', border: '#fde68a', text: 'UNKNOWN' },
+  checking: { color: '#9ca3af', bg: '#f9fafb', border: '#e5e7eb', text: 'checking…' },
+};
+
+function SystemHealth() {
+  const [status, setStatus] = useState({ api: 'checking', db: 'checking', n8n: 'checking' });
+
+  useEffect(() => {
+    // Backend API + DB — use the shared api instance (auth header included)
+    api.get('/api/health')
+      .then((res) => {
+        setStatus((prev) => ({ ...prev, api: 'ok' }));
+        // Infer DB status from health response body
+        const d = res.data ?? {};
+        const dbField = d.db ?? d.database ?? d.postgres ?? d.prisma;
+        const dbOk = dbField != null
+          ? ['ok', 'connected', 'up', 'healthy'].includes(String(dbField).toLowerCase())
+          : (d.status === 'ok' || d.status === 'healthy' || res.status === 200);
+        setStatus((prev) => ({ ...prev, db: dbOk ? 'ok' : 'error' }));
+      })
+      .catch(() => {
+        setStatus((prev) => ({ ...prev, api: 'error', db: 'unknown' }));
+      });
+
+    // n8n — cross-origin, use no-cors so opaque response = reachable
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    fetch('https://n8n.maxpromo.digital/healthz', { signal: ctrl.signal, mode: 'no-cors' })
+      .then(() => setStatus((prev) => ({ ...prev, n8n: 'ok' })))
+      .catch(() => setStatus((prev) => ({ ...prev, n8n: 'unknown' })))
+      .finally(() => clearTimeout(timer));
+  }, []);
+
+  return (
+    <div style={s.healthRow}>
+      <span style={s.healthRowLabel}>System Health</span>
+      <div style={s.healthPills}>
+        {HEALTH_PILLS.map(({ id, label }) => {
+          const cfg = STATUS_CONFIG[status[id]] ?? STATUS_CONFIG.checking;
+          return (
+            <div
+              key={id}
+              style={{ ...s.healthPill, background: cfg.bg, border: `1px solid ${cfg.border}` }}
+            >
+              <span style={{ ...s.healthDot, background: cfg.color }} />
+              <span style={s.healthPillLabel}>{label}</span>
+              <span style={{ ...s.healthPillStatus, color: cfg.color }}>{cfg.text}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Quick commands terminal ──────────────────────────────────────────────────
+function QuickCommands({ onNavigate }) {
+  const [active, setActive] = useState(null);
+
+  const cmds = [
+    { id: 'briefing',    label: '> get daily briefing',      to: '/ceo-office' },
+    { id: 'agents',      label: '> open agents monitor',     to: '/agents' },
+    { id: 'compliance',  label: '> view compliance status',  to: '/compliance' },
+  ];
+
+  function run(cmd) {
+    setActive(cmd.id);
+    setTimeout(() => {
+      setActive(null);
+      onNavigate(cmd.to);
+    }, 500);
+  }
+
+  return (
+    <div style={s.terminal}>
+      {/* Chrome bar */}
+      <div style={s.termChrome}>
+        <div style={s.termDots}>
+          <span style={{ ...s.termDot, background: '#ef4444' }} />
+          <span style={{ ...s.termDot, background: '#f59e0b' }} />
+          <span style={{ ...s.termDot, background: '#3ab54a' }} />
+        </div>
+        <span style={s.termTitle}>envico@careos — quick-commands</span>
+        <span style={s.termLive}>● READY</span>
+      </div>
+
+      {/* Command buttons */}
+      <div style={s.termBody}>
+        <div style={s.termPromptLine}>
+          <span style={s.termPs1}>CEO@envico:~$</span>
+          <span style={s.termHint}>click a command to execute</span>
+        </div>
+        {cmds.map((cmd) => (
+          <button
+            key={cmd.id}
+            style={{
+              ...s.termCmd,
+              ...(active === cmd.id ? s.termCmdActive : {}),
+            }}
+            onClick={() => run(cmd)}
+          >
+            <span style={s.termCmdText}>{cmd.label}</span>
+            {active === cmd.id && <span style={s.termCmdRunning}>executing…</span>}
+          </button>
+        ))}
+        <div style={s.termCursor}>
+          <span style={s.termPs1}>CEO@envico:~$</span>
+          <span style={s.termBlink}>▌</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function CeoOnboarding() {
   if (getUserRole() !== 'ADMIN') return <Navigate to="/" replace />;
 
   const navigate = useNavigate();
-  const [checked, setChecked] = useState(loadChecked);
-
-  function toggle(id) {
-    const next = { ...checked, [id]: !checked[id] };
-    setChecked(next);
-    saveChecked(next);
-  }
-
-  const completedCount = CHECKLIST.filter((c) => checked[c.id]).length;
-  const completePct    = Math.round((completedCount / CHECKLIST.length) * 100);
 
   return (
     <div style={s.page}>
 
-      {/* Hero */}
-      <div style={s.hero}>
-        <div style={s.heroContent}>
-          <img src="/Enivco-logo.png" alt="Envico" style={s.heroLogo} />
-          <h1 style={s.heroTitle}>Welcome to Envico CareOS 2026</h1>
-          <p style={s.heroSub}>Your complete care management operating system</p>
-          <div style={s.progressWrap}>
-            <div style={s.progressLabel}>
-              <span>System Setup</span>
-              <span>{completePct}% complete</span>
-            </div>
-            <div style={s.progressBar}>
-              <div style={{ ...s.progressFill, width: `${completePct}%` }} />
-            </div>
+      {/* Terminal header bar */}
+      <div style={s.header}>
+        <div style={s.headerLeft}>
+          <div style={s.headerDots}>
+            <span style={{ ...s.hDot, background: '#ef4444' }} />
+            <span style={{ ...s.hDot, background: '#f59e0b' }} />
+            <span style={{ ...s.hDot, background: '#3ab54a' }} />
           </div>
+          <div>
+            <div style={s.headerTitle}>CareOS 2026 — System Overview</div>
+            <div style={s.headerSub}>Welcome. Everything is running.</div>
+          </div>
+        </div>
+        <div style={s.headerRight}>
+          <span style={s.headerBadge}>16 MODULES</span>
+          <span style={s.headerBadge}>ALL LIVE</span>
         </div>
       </div>
 
-      {/* System overview cards */}
+      {/* Section 1 — Status strip */}
+      <StatusStrip />
+
+      {/* Section 2 — Module grid */}
       <div style={s.section}>
-        <h2 style={s.sectionTitle}>System Overview</h2>
-        <div style={s.overviewGrid}>
-          {SYSTEM_CARDS.map((card) => (
-            <div key={card.title} style={{ ...s.overviewCard, borderTop: `4px solid ${card.colour}` }}>
-              <div style={s.overviewIcon}>{card.icon}</div>
-              <div style={{ ...s.overviewCardTitle, color: card.colour }}>{card.title}</div>
-              <ul style={s.overviewList}>
-                {card.items.map((item) => (
-                  <li key={item} style={s.overviewItem}>✓ {item}</li>
-                ))}
-              </ul>
-              <div style={s.overviewStatus}>
-                <span style={s.liveBadge}>✅ LIVE</span>
-              </div>
-              <button style={{ ...s.overviewCta, color: card.colour, borderColor: card.colour }} onClick={() => navigate(card.to)}>
-                {card.ctaLabel}
-              </button>
-            </div>
+        <div style={s.sectionHead}>
+          <span style={s.sectionTitle}>All Modules</span>
+          <span style={s.sectionSub}>8 phases · 16 modules · fully operational</span>
+        </div>
+        <div style={s.modGrid}>
+          {MODULES.map((mod) => (
+            <ModuleCard key={mod.to} mod={mod} onOpen={(to) => navigate(to)} />
           ))}
         </div>
       </div>
 
-      {/* Checklist */}
-      <div style={s.section}>
-        <div style={s.checklistHeader}>
-          <h2 style={s.sectionTitle}>Getting Started — Complete These Steps</h2>
-          <span style={s.checkPct}>{completedCount} / {CHECKLIST.length} done</span>
-        </div>
-        <div style={s.checklistGrid}>
-          {CHECKLIST.map((item) => (
-            <div
-              key={item.id}
-              style={{ ...s.checkItem, ...(checked[item.id] ? s.checkItemDone : {}) }}
-            >
-              <input
-                type="checkbox"
-                checked={!!checked[item.id]}
-                onChange={() => toggle(item.id)}
-                style={s.checkbox}
-                id={`check-${item.id}`}
-              />
-              <label htmlFor={`check-${item.id}`} style={{ ...s.checkLabel, ...(checked[item.id] ? s.checkLabelDone : {}) }}>
-                {item.label}
-              </label>
-              <button style={s.goBtn} onClick={() => navigate(item.to)}>Go →</button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* All modules */}
-      <div style={s.section}>
-        <h2 style={s.sectionTitle}>Full System — All Modules</h2>
-        {SECTIONS.map((sec) => (
-          <div key={sec.title} style={s.moduleSection}>
-            <div style={{ ...s.moduleSectionTitle, color: sec.colour }}>{sec.title}</div>
-            <div style={s.moduleGrid}>
-              {sec.pages.map((pg) => (
-                <div key={pg.to} style={s.moduleCard}>
-                  <span style={s.moduleIcon}>{pg.icon}</span>
-                  <div style={s.moduleName}>{pg.label}</div>
-                  <div style={s.moduleDesc}>{pg.desc}</div>
-                  <button
-                    style={{ ...s.moduleBtn, background: sec.colour }}
-                    onClick={() => navigate(pg.to)}
-                  >
-                    Open
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* System health */}
+      {/* Section 3 — System Health */}
       <SystemHealth />
+
+      {/* Section 4 — Quick commands */}
+      <QuickCommands onNavigate={(to) => navigate(to)} />
+
     </div>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const s = {
-  page: { display: 'flex', flexDirection: 'column', gap: '1.5rem' },
-
-  // Hero
-  hero: {
-    background: 'linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 60%, #2d2d4e 100%)',
-    borderRadius: '16px', padding: '2.5rem 2rem',
-    boxShadow: '0 4px 24px rgba(0,0,0,0.2)',
+  page: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1.25rem',
+    maxWidth: '1100px',
   },
-  heroContent: { display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '600px' },
-  heroLogo:    { width: '140px', filter: 'brightness(0) invert(1)', marginBottom: '0.5rem' },
-  heroTitle:   { margin: 0, fontSize: '1.75rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.5px' },
-  heroSub:     { margin: 0, fontSize: '0.95rem', color: '#8888bb' },
-  progressWrap:  { display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.75rem' },
-  progressLabel: { display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#8888bb' },
-  progressBar:   { height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', overflow: 'hidden' },
-  progressFill:  { height: '100%', background: 'linear-gradient(90deg, #7c3aed, #fbbf24)', borderRadius: '8px', transition: 'width 0.4s ease' },
 
-  // Section
+  // Header bar
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    background: '#0d1117',
+    border: '1px solid #1e2d1e',
+    borderRadius: '10px',
+    padding: '1rem 1.25rem',
+  },
+  headerLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+  },
+  headerDots: { display: 'flex', gap: '6px', alignItems: 'center' },
+  hDot: { width: 11, height: 11, borderRadius: '50%' },
+  headerTitle: {
+    fontFamily: 'monospace',
+    fontSize: '1rem',
+    fontWeight: 700,
+    color: '#3ab54a',
+    letterSpacing: '0.04em',
+  },
+  headerSub: {
+    fontFamily: 'monospace',
+    fontSize: '0.72rem',
+    color: '#4a7a50',
+    marginTop: '2px',
+    letterSpacing: '0.04em',
+  },
+  headerRight: {
+    display: 'flex',
+    gap: '0.5rem',
+  },
+  headerBadge: {
+    fontFamily: 'monospace',
+    fontSize: '0.68rem',
+    letterSpacing: '0.1em',
+    border: '1px solid #1e3320',
+    borderRadius: '4px',
+    padding: '3px 10px',
+    color: '#3ab54a',
+    background: 'rgba(58,181,74,0.08)',
+  },
+
+  // Status strip
+  stripHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: '0.5rem',
+  },
+  stripLabel: {
+    fontSize: '0.72rem',
+    fontWeight: 700,
+    color: '#9ca3af',
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+  },
+  refreshBtn: {
+    fontFamily: 'monospace',
+    fontSize: '0.72rem',
+    letterSpacing: '0.06em',
+    padding: '3px 12px',
+    background: 'transparent',
+    border: '1px solid #d1d5db',
+    borderRadius: '5px',
+    color: '#6b7280',
+    cursor: 'pointer',
+    transition: 'border-color 0.15s, color 0.15s',
+  },
+  strip: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, 1fr)',
+    gap: '0.75rem',
+  },
+  metricCard: {
+    background: '#ffffff',
+    border: '1px solid #e5e7eb',
+    borderRadius: '10px',
+    padding: '1rem 1.25rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.25rem',
+  },
+  metricTop: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  metricIcon: { fontSize: '1.3rem', lineHeight: 1 },
+  metricDot: {
+    width: 8,
+    height: 8,
+    borderRadius: '50%',
+  },
+  metricVal: {
+    fontSize: '2rem',
+    fontWeight: 800,
+    lineHeight: 1.1,
+    marginTop: '0.25rem',
+  },
+  metricSpin: {
+    fontSize: '1.5rem',
+    color: '#d1d5db',
+    letterSpacing: '0.1em',
+  },
+  metricLabel: {
+    fontSize: '0.78rem',
+    color: '#9ca3af',
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
+  },
+
+  // Module grid section
   section: {
-    background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px',
-    padding: '1.5rem', boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
-    display: 'flex', flexDirection: 'column', gap: '1rem',
+    background: '#ffffff',
+    border: '1px solid #e5e7eb',
+    borderRadius: '12px',
+    padding: '1.25rem',
   },
-  sectionTitle: { margin: 0, fontSize: '1rem', fontWeight: 700, color: '#1a1a2e' },
+  sectionHead: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: '0.75rem',
+    marginBottom: '1rem',
+  },
+  sectionTitle: {
+    fontSize: '0.88rem',
+    fontWeight: 800,
+    color: '#111827',
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+  },
+  sectionSub: {
+    fontSize: '0.75rem',
+    color: '#9ca3af',
+    fontFamily: 'monospace',
+  },
+  modGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: '0.75rem',
+  },
 
-  // Overview cards
-  overviewGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' },
-  overviewCard: {
-    background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '10px',
-    padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.6rem',
+  // Module card
+  modCard: {
+    background: '#f9fafb',
+    border: '1px solid #e5e7eb',
+    borderRadius: '9px',
+    padding: '0.9rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.3rem',
+    transition: 'border-color 0.15s, box-shadow 0.15s',
+    cursor: 'default',
   },
-  overviewIcon:      { fontSize: '1.75rem', lineHeight: 1 },
-  overviewCardTitle: { fontWeight: 800, fontSize: '0.9rem' },
-  overviewList:      { margin: 0, padding: '0 0 0 0', listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 },
-  overviewItem:      { fontSize: '0.78rem', color: '#6b7280' },
-  overviewStatus:    { marginTop: 'auto' },
-  liveBadge:         { padding: '2px 10px', background: '#dcfce7', color: '#166534', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700 },
-  overviewCta: {
-    marginTop: '0.25rem', padding: '0.45rem 0', background: 'transparent',
-    border: '1px solid', borderRadius: '7px', fontSize: '0.82rem',
-    fontWeight: 600, cursor: 'pointer', textAlign: 'center',
+  modCardHover: {
+    background: '#fff',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.07)',
+  },
+  modTop: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '0.15rem',
+  },
+  modIcon: { fontSize: '1.35rem', lineHeight: 1 },
+  modPhase: {
+    fontFamily: 'monospace',
+    fontSize: '0.65rem',
+    fontWeight: 700,
+    letterSpacing: '0.06em',
+    border: '1px solid',
+    borderRadius: '3px',
+    padding: '1px 6px',
+    background: 'transparent',
+  },
+  modName: {
+    fontSize: '0.85rem',
+    fontWeight: 700,
+    color: '#111827',
+  },
+  modDesc: {
+    fontSize: '0.72rem',
+    color: '#9ca3af',
+    lineHeight: 1.45,
+    flex: 1,
+  },
+  modFooter: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: '0.4rem',
+  },
+  modLive: {
+    fontFamily: 'monospace',
+    fontSize: '0.65rem',
+    color: '#16a34a',
+    fontWeight: 700,
+    letterSpacing: '0.06em',
+  },
+  modBtn: {
+    padding: '3px 14px',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '5px',
+    fontSize: '0.75rem',
+    fontWeight: 700,
+    cursor: 'pointer',
+    letterSpacing: '0.02em',
   },
 
-  // Checklist
-  checklistHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
-  checkPct:        { fontSize: '0.82rem', color: '#6b7280', fontWeight: 600 },
-  checklistGrid:   { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
-  checkItem: {
-    display: 'flex', alignItems: 'center', gap: '0.75rem',
-    padding: '0.65rem 0.9rem', border: '1px solid #e5e7eb', borderRadius: '8px',
-    background: '#f9fafb', transition: 'background 0.15s',
+  // System health row
+  healthRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+    background: '#ffffff',
+    border: '1px solid #e5e7eb',
+    borderRadius: '10px',
+    padding: '0.75rem 1.25rem',
   },
-  checkItemDone: { background: '#f0fdf4', border: '1px solid #86efac' },
-  checkbox:      { width: 17, height: 17, cursor: 'pointer', accentColor: '#16a34a', flexShrink: 0 },
-  checkLabel:    { flex: 1, fontSize: '0.88rem', color: '#374151', cursor: 'pointer' },
-  checkLabelDone:{ color: '#9ca3af', textDecoration: 'line-through' },
-  goBtn: {
-    padding: '3px 12px', background: '#1a1a2e', color: '#fff',
-    border: 'none', borderRadius: '5px', fontSize: '0.78rem', cursor: 'pointer',
+  healthRowLabel: {
+    fontSize: '0.72rem',
+    fontWeight: 700,
+    color: '#9ca3af',
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+    flexShrink: 0,
+    minWidth: '90px',
+  },
+  healthPills: {
+    display: 'flex',
+    gap: '0.5rem',
+    flexWrap: 'wrap',
+  },
+  healthPill: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.4rem',
+    borderRadius: '20px',
+    padding: '4px 12px',
+  },
+  healthDot: {
+    width: 7,
+    height: 7,
+    borderRadius: '50%',
     flexShrink: 0,
   },
+  healthPillLabel: {
+    fontSize: '0.78rem',
+    fontWeight: 600,
+    color: '#374151',
+  },
+  healthPillStatus: {
+    fontSize: '0.72rem',
+    fontWeight: 700,
+    letterSpacing: '0.04em',
+  },
 
-  // Module sections
-  moduleSection:      { display: 'flex', flexDirection: 'column', gap: '0.6rem' },
-  moduleSectionTitle: { fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' },
-  moduleGrid: {
-    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.75rem',
+  // Terminal quick commands
+  terminal: {
+    background: '#050d05',
+    border: '1px solid #1e3320',
+    borderRadius: '10px',
+    overflow: 'hidden',
+    fontFamily: 'monospace',
   },
-  moduleCard: {
-    background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '10px',
-    padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', alignItems: 'flex-start',
+  termChrome: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    padding: '0.55rem 0.9rem',
+    background: '#0d1b0d',
+    borderBottom: '1px solid #1e3320',
   },
-  moduleIcon: { fontSize: '1.5rem', lineHeight: 1 },
-  moduleName: { fontWeight: 700, fontSize: '0.85rem', color: '#1a1a2e' },
-  moduleDesc: { fontSize: '0.72rem', color: '#9ca3af', lineHeight: 1.4, flex: 1 },
-  moduleBtn:  { marginTop: '0.4rem', padding: '4px 14px', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '0.78rem', cursor: 'pointer', fontWeight: 600 },
-
-  // Health
-  healthGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' },
-  healthCard: {
-    background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '10px',
-    padding: '0.9rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem',
+  termDots: { display: 'flex', gap: '6px', alignItems: 'center' },
+  termDot: { width: 10, height: 10, borderRadius: '50%' },
+  termTitle: {
+    flex: 1,
+    fontSize: '0.75rem',
+    color: '#4a7a50',
+    letterSpacing: '0.06em',
   },
-  healthDot:    { width: 12, height: 12, borderRadius: '50%', flexShrink: 0, animation: 'none' },
-  healthLabel:  { fontSize: '0.85rem', fontWeight: 600, color: '#1a1a2e' },
-  healthStatus: { fontSize: '0.75rem', fontWeight: 600, marginTop: '1px' },
+  termLive: {
+    fontSize: '0.72rem',
+    color: '#3ab54a',
+    letterSpacing: '0.08em',
+  },
+  termBody: {
+    padding: '0.9rem 1rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.4rem',
+  },
+  termPromptLine: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    marginBottom: '0.25rem',
+  },
+  termPs1: {
+    color: '#3ab54a',
+    fontSize: '0.78rem',
+    fontWeight: 700,
+    letterSpacing: '0.04em',
+  },
+  termHint: {
+    color: '#2d5e33',
+    fontSize: '0.72rem',
+  },
+  termCmd: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '0.55rem 0.9rem',
+    background: '#0a160a',
+    border: '1px solid #1e3320',
+    borderRadius: '5px',
+    cursor: 'pointer',
+    transition: 'background 0.15s, border-color 0.15s',
+    textAlign: 'left',
+  },
+  termCmdActive: {
+    background: '#0d2210',
+    borderColor: '#3ab54a',
+  },
+  termCmdText: {
+    fontFamily: 'monospace',
+    fontSize: '0.82rem',
+    color: '#6ee77a',
+    letterSpacing: '0.04em',
+  },
+  termCmdRunning: {
+    fontFamily: 'monospace',
+    fontSize: '0.72rem',
+    color: '#3ab54a',
+    letterSpacing: '0.06em',
+    animation: 'none',
+  },
+  termCursor: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    marginTop: '0.15rem',
+    padding: '0.3rem 0',
+  },
+  termBlink: {
+    color: '#3ab54a',
+    fontSize: '0.85rem',
+  },
 };

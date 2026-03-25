@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import OCRDocumentScanner from '../components/OCRDocumentScanner';
+import AddressAutocomplete from '../components/AddressAutocomplete';
 
 const STATUS_COLORS = {
   ACTIVE: '#16a34a',
@@ -120,6 +122,7 @@ function CreateUserModal({ onClose, onCreated }) {
     first_name: '', last_name: '', dob: '',
     care_type: 'SUPPORTED_LIVING', status: 'ACTIVE',
     phone: '', nhs_number: '',
+    address_line1: '', postcode: '', city: '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -149,6 +152,20 @@ function CreateUserModal({ onClose, onCreated }) {
         </div>
         <form onSubmit={submit} style={modalStyles.body}>
           {error && <p style={{ color: '#dc2626', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</p>}
+          <OCRDocumentScanner
+            context="referral"
+            label="Scan referral form or letter"
+            onImport={(data) => {
+              if (data.full_name) {
+                const parts = data.full_name.trim().split(' ');
+                set('first_name', parts[0] ?? '');
+                set('last_name', parts.slice(1).join(' ') || '');
+              }
+              if (data.date_of_birth) set('dob', data.date_of_birth);
+              if (data.phone) set('phone', data.phone);
+              if (data.address) set('address_line1', data.address);
+            }}
+          />
           <div style={formStyles.row}>
             <Field label="First Name" required>
               <input style={formStyles.input} value={form.first_name} onChange={(e) => set('first_name', e.target.value)} required />
@@ -173,6 +190,25 @@ function CreateUserModal({ onClose, onCreated }) {
             </Field>
             <Field label="NHS Number">
               <input style={formStyles.input} value={form.nhs_number} onChange={(e) => set('nhs_number', e.target.value)} />
+            </Field>
+          </div>
+          <AddressAutocomplete
+            label="Address"
+            placeholder="Start typing address..."
+            value={form.address_line1}
+            onChange={(val) => set('address_line1', val)}
+            onSelect={(r) => {
+              set('address_line1', r.street);
+              set('postcode', r.postcode ?? '');
+              set('city', r.city ?? '');
+            }}
+          />
+          <div style={formStyles.row}>
+            <Field label="City">
+              <input style={formStyles.input} value={form.city} onChange={(e) => set('city', e.target.value)} />
+            </Field>
+            <Field label="Postcode">
+              <input style={formStyles.input} value={form.postcode} onChange={(e) => set('postcode', e.target.value)} />
             </Field>
           </div>
           <button style={formStyles.submit} type="submit" disabled={submitting}>

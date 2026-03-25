@@ -20,13 +20,28 @@ import CeoBriefing from './pages/CeoBriefing';
 import Rota from './pages/Rota';
 import DataImport from './pages/DataImport';
 import CeoOnboarding from './pages/CeoOnboarding';
+import Agents from './pages/Agents';
 import Layout from './components/Layout';
 
+function getRole() {
+  try {
+    const stored = JSON.parse(localStorage.getItem('user') || '{}');
+    if (stored.role) return stored.role;
+    const token = localStorage.getItem('token');
+    if (token) return JSON.parse(atob(token.split('.')[1])).role ?? null;
+    return null;
+  } catch { return null; }
+}
+
 function ProtectedRoutes({ onLogout }) {
+  const role = getRole();
   return (
     <Layout onLogout={onLogout}>
       <Routes>
-        <Route path="/" element={<Dashboard onLogout={onLogout} />} />
+        <Route
+          path="/"
+          element={role === 'ADMIN' ? <Navigate to="/ceo-onboarding" replace /> : <Dashboard onLogout={onLogout} />}
+        />
         <Route path="/service-users" element={<ServiceUsers />} />
         <Route path="/incidents" element={<Incidents />} />
         <Route path="/medications" element={<Medications />} />
@@ -45,6 +60,9 @@ function ProtectedRoutes({ onLogout }) {
         <Route path="/rota" element={<Rota />} />
         <Route path="/import" element={<DataImport />} />
         <Route path="/ceo-onboarding" element={<CeoOnboarding />} />
+        <Route path="/agents" element={<Agents />} />
+        {/* /dashboard bypasses the ADMIN redirect at / */}
+        <Route path="/dashboard" element={<Dashboard onLogout={onLogout} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>
