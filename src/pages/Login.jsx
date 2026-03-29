@@ -1,11 +1,19 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import api from '../services/api';
+
+const QUICK_USERS = [
+  { name: 'Engelbert', role: 'CEO', email: 'admin@test.com', password: '12345678' },
+  { name: 'Manager', role: 'Manager', email: 'manager@test.com', password: '12345678' },
+  { name: 'Staff', role: 'Staff', email: 'staff@test.com', password: '12345678' },
+];
 
 export default function Login({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [hoveredPill, setHoveredPill] = useState(null);
+  const submitRef = useRef(null);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -36,6 +44,12 @@ export default function Login({ onLogin }) {
     }
   }
 
+  function fillCredentials(user) {
+    setEmail(user.email);
+    setPassword(user.password);
+    submitRef.current?.focus();
+  }
+
   return (
     <div style={styles.container}>
       <div style={styles.card}>
@@ -63,10 +77,39 @@ export default function Login({ onLogin }) {
             />
           </div>
           {error && <p style={styles.error}>{error}</p>}
-          <button style={styles.button} type="submit" disabled={loading}>
+          <button ref={submitRef} style={styles.button} type="submit" disabled={loading}>
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
+
+        {/* Quick Access Pills */}
+        <div style={styles.divider} />
+        <p style={styles.pillsLabel}>Quick access (click to fill)</p>
+        <div style={styles.pillsRow}>
+          {QUICK_USERS.map((user) => {
+            const isHovered = hoveredPill === user.role;
+            return (
+              <button
+                key={user.role}
+                type="button"
+                onClick={() => fillCredentials(user)}
+                onMouseEnter={() => setHoveredPill(user.role)}
+                onMouseLeave={() => setHoveredPill(null)}
+                style={{
+                  ...styles.pill,
+                  ...(isHovered ? styles.pillHover : {}),
+                }}
+              >
+                <span style={{ ...styles.pillName, ...(isHovered ? styles.pillNameHover : {}) }}>
+                  {user.name}
+                </span>
+                <span style={{ ...styles.pillBadge, ...(isHovered ? styles.pillBadgeHover : {}) }}>
+                  {user.role}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -125,5 +168,56 @@ const styles = {
     color: '#c0392b',
     fontSize: '0.875rem',
     marginBottom: '0.5rem',
+  },
+  divider: {
+    marginTop: '1.25rem',
+    borderTop: '1px solid rgba(0,0,0,0.08)',
+  },
+  pillsLabel: {
+    margin: '0.6rem 0 0.5rem',
+    fontSize: '0.7rem',
+    color: '#aaa',
+    textAlign: 'center',
+    letterSpacing: '0.03em',
+  },
+  pillsRow: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: '8px',
+  },
+  pill: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '5px 14px',
+    background: 'rgba(58,138,58,0.08)',
+    border: '1px solid rgba(58,138,58,0.35)',
+    borderRadius: '9999px',
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+    outline: 'none',
+  },
+  pillHover: {
+    background: '#3a8a3a',
+    borderColor: '#3a8a3a',
+  },
+  pillName: {
+    fontSize: '12px',
+    fontWeight: 600,
+    color: '#444',
+  },
+  pillNameHover: {
+    color: '#fff',
+  },
+  pillBadge: {
+    fontSize: '10px',
+    fontWeight: 700,
+    fontFamily: 'monospace',
+    color: '#3ab54a',
+    letterSpacing: '0.04em',
+  },
+  pillBadgeHover: {
+    color: '#fff',
   },
 };
