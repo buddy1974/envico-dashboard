@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '../services/api';
 import OCRDocumentScanner from '../components/OCRDocumentScanner';
 import AIWriteButton from '../components/AIWriteButton';
+import SmartInputPanel from '../components/SmartInputPanel';
 
 const SEVERITY_COLORS = {
   CRITICAL: '#dc2626',
@@ -50,7 +51,22 @@ export default function Incidents() {
           <h1 style={styles.title}>Incidents</h1>
           <p style={styles.subtitle}>{incidents.length} total</p>
         </div>
-        <button style={styles.createBtn} onClick={() => setShowReport(true)}>+ Report Incident</button>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <SmartInputPanel
+            section="incident"
+            triggerLabel="🎙️ Dictate Incident"
+            triggerStyle={{ fontSize: 12, padding: '7px 14px' }}
+            reportMode={true}
+            reportType="incident"
+            onConfirm={(fields) => {
+              // Pre-fill the modal form from dictated/AI-extracted fields
+              setShowReport(true);
+              // Store pre-filled fields in state for the modal to pick up
+              window.__incidentPreFill = fields;
+            }}
+          />
+          <button style={styles.createBtn} onClick={() => { window.__incidentPreFill = null; setShowReport(true); }}>+ Report Incident</button>
+        </div>
       </div>
 
       {loading && <p style={styles.state}>Loading...</p>}
@@ -132,19 +148,25 @@ function IncidentDetailModal({ incident, onClose }) {
 
 function ReportIncidentModal({ onClose, onCreated }) {
   const [serviceUsers, setServiceUsers] = useState([]);
+  // Pick up any pre-filled fields from SmartInputPanel
+  const preFill = window.__incidentPreFill ?? {};
   const [form, setForm] = useState({
-    type: 'ACCIDENT',
-    severity: 'MEDIUM',
-    description: '',
-    reported_by: '',
+    type: preFill.type?.toUpperCase()?.replace(/\s/g,'_') ?? 'ACCIDENT',
+    severity: preFill.severity?.toUpperCase() ?? 'MEDIUM',
+    description: preFill.description ?? preFill.observation ?? '',
+    reported_by: preFill.reported_by ?? '',
     service_user_id: '',
-    location: '',
+    location: preFill.location ?? '',
+    witnesses: preFill.witnesses ?? '',
+    action_taken: preFill.immediate_action_taken ?? '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [hasPreFill] = useState(Object.keys(preFill).length > 0);
 
   useEffect(() => {
     api.get('/api/service-users').then((res) => setServiceUsers(res.data.service_users ?? [])).catch(() => {});
+    return () => { window.__incidentPreFill = null; };
   }, []);
 
   function set(field, value) { setForm((p) => ({ ...p, [field]: value })); }
@@ -174,6 +196,11 @@ function ReportIncidentModal({ onClose, onCreated }) {
           <button style={modalStyles.close} onClick={onClose}>×</button>
         </div>
         <form onSubmit={submit} style={modalStyles.body}>
+          {hasPreFill && (
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', marginBottom: '1rem', fontSize: 13, color: '#15803d', fontWeight: 600 }}>
+              ✓ Fields pre-filled from Smart Input — review and complete remaining fields below.
+            </div>
+          )}
           {error && <p style={{ color: '#dc2626', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</p>}
           <OCRDocumentScanner
             context="incident"

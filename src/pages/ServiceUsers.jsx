@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '../services/api';
 import OCRDocumentScanner from '../components/OCRDocumentScanner';
 import AddressAutocomplete from '../components/AddressAutocomplete';
+import SmartInputPanel from '../components/SmartInputPanel';
 
 const STATUS_COLORS = {
   ACTIVE: '#16a34a',
@@ -42,7 +43,20 @@ export default function ServiceUsers() {
           <h1 style={styles.title}>Service Users</h1>
           <p style={styles.subtitle}>{users.length} registered</p>
         </div>
-        <button style={styles.createBtn} onClick={() => setShowCreate(true)}>+ New Service User</button>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <SmartInputPanel
+            section="service-user"
+            triggerLabel="🎙️ Quick Note"
+            triggerStyle={{ fontSize: 12, padding: '7px 14px' }}
+            reportMode={true}
+            reportType="care-review"
+            onConfirm={(fields) => {
+              window.__serviceUserPreFill = fields;
+              setShowCreate(true);
+            }}
+          />
+          <button style={styles.createBtn} onClick={() => { window.__serviceUserPreFill = null; setShowCreate(true); }}>+ New Service User</button>
+        </div>
       </div>
 
       {loading && <p style={styles.state}>Loading...</p>}
@@ -118,14 +132,21 @@ function UserDetailModal({ user, onClose }) {
 }
 
 function CreateUserModal({ onClose, onCreated }) {
+  const preFill = window.__serviceUserPreFill ?? {};
+  // Attempt to split service_user_name if provided
+  const nameParts = (preFill.service_user_name ?? '').split(' ');
   const [form, setForm] = useState({
-    first_name: '', last_name: '', dob: '',
+    first_name: nameParts[0] ?? '',
+    last_name: nameParts.slice(1).join(' ') ?? '',
+    dob: preFill.date_of_birth ?? '',
     care_type: 'SUPPORTED_LIVING', status: 'ACTIVE',
     phone: '', nhs_number: '',
     address_line1: '', postcode: '', city: '',
+    support_needs: preFill.observation ?? preFill.support_needs ?? '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [hasPreFill] = useState(Object.keys(preFill).length > 0);
 
   function set(field, value) { setForm((p) => ({ ...p, [field]: value })); }
 
@@ -151,6 +172,11 @@ function CreateUserModal({ onClose, onCreated }) {
           <button style={modalStyles.close} onClick={onClose}>×</button>
         </div>
         <form onSubmit={submit} style={modalStyles.body}>
+          {hasPreFill && (
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', marginBottom: '1rem', fontSize: 13, color: '#15803d', fontWeight: 600 }}>
+              ✓ Fields pre-filled from Smart Input — review and complete remaining fields.
+            </div>
+          )}
           {error && <p style={{ color: '#dc2626', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</p>}
           <OCRDocumentScanner
             context="referral"

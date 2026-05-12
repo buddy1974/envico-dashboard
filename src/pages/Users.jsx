@@ -34,6 +34,10 @@ export default function Users() {
   const [saving, setSaving]       = useState(false);
   const [formError, setFormError] = useState('');
   const [actionLoading, setAL]    = useState(null);
+  const [resetModal, setResetModal] = useState(null);   // user object or null
+  const [resetPwd,   setResetPwd]   = useState('');
+  const [resetLoading, setResetL]   = useState(false);
+  const [resetError,   setResetErr] = useState('');
 
   const currentUser = (() => {
     try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; }
@@ -103,6 +107,18 @@ export default function Users() {
     } catch (err) {
       alert(err.response?.data?.error ?? 'Failed to reactivate user');
     } finally { setAL(null); }
+  }
+
+  async function handleResetPassword(e) {
+    e.preventDefault();
+    if (!resetModal) return;
+    setResetL(true); setResetErr('');
+    try {
+      await api.post(`/api/auth/reset-user-password/${resetModal.id}`, { new_password: resetPwd });
+      setResetModal(null); setResetPwd('');
+    } catch (err) {
+      setResetErr(err.response?.data?.error ?? 'Failed to reset password');
+    } finally { setResetL(false); }
   }
 
   function suName(id) {
@@ -223,6 +239,42 @@ export default function Users() {
         </div>
       )}
 
+      {/* Reset Password modal */}
+      {resetModal && (
+        <div style={styles.modalOverlay}>
+          <div style={{ ...styles.modal, maxWidth: '380px' }}>
+            <h2 style={styles.modalTitle}>Reset Password</h2>
+            <p style={{ margin: '0 0 1rem', fontSize: '0.88rem', color: '#6b7280' }}>
+              Setting new password for <strong>{resetModal.name}</strong>
+            </p>
+            {resetError && <div style={styles.formError}>{resetError}</div>}
+            <form onSubmit={handleResetPassword} style={styles.form}>
+              <div style={styles.row}>
+                <label style={styles.label}>New Password *</label>
+                <input
+                  style={styles.input}
+                  type="password"
+                  value={resetPwd}
+                  onChange={(e) => setResetPwd(e.target.value)}
+                  placeholder="Min. 8 characters"
+                  required
+                  minLength={8}
+                  autoFocus
+                />
+              </div>
+              <div style={styles.formActions}>
+                <button type="button" style={styles.cancelBtn} onClick={() => { setResetModal(null); setResetPwd(''); setResetErr(''); }}>
+                  Cancel
+                </button>
+                <button type="submit" style={{ ...styles.saveBtn, background: '#dc2626' }} disabled={resetLoading}>
+                  {resetLoading ? 'Resetting…' : 'Reset Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
       <div style={styles.tableWrap}>
         {loading && <p style={styles.msg}>Loading users...</p>}
@@ -268,14 +320,21 @@ export default function Users() {
                     <td style={styles.td}>
                       {user.id === currentUser.id ? (
                         <span style={styles.selfLabel}>You</span>
-                      ) : user.is_active ? (
-                        <button style={styles.deactivateBtn} onClick={() => handleDeactivate(user)} disabled={actionLoading === user.id}>
-                          {actionLoading === user.id ? '...' : 'Deactivate'}
-                        </button>
                       ) : (
-                        <button style={styles.reactivateBtn} onClick={() => handleReactivate(user)} disabled={actionLoading === user.id}>
-                          {actionLoading === user.id ? '...' : 'Reactivate'}
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                          {user.is_active ? (
+                            <button style={styles.deactivateBtn} onClick={() => handleDeactivate(user)} disabled={actionLoading === user.id}>
+                              {actionLoading === user.id ? '...' : 'Deactivate'}
+                            </button>
+                          ) : (
+                            <button style={styles.reactivateBtn} onClick={() => handleReactivate(user)} disabled={actionLoading === user.id}>
+                              {actionLoading === user.id ? '...' : 'Reactivate'}
+                            </button>
+                          )}
+                          <button style={styles.resetPwdBtn} onClick={() => { setResetModal(user); setResetPwd(''); setResetErr(''); }}>
+                            Reset Pwd
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -315,7 +374,8 @@ const styles = {
   linkedBadge: { display: 'inline-block', padding: '3px 10px', borderRadius: '20px', background: '#f3e8ff', color: '#6b21a8', fontSize: '0.75rem', fontWeight: 600 },
   deactivateBtn: { padding: '4px 12px', background: 'transparent', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 500 },
   reactivateBtn: { padding: '4px 12px', background: 'transparent', border: '1px solid #86efac', color: '#16a34a', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 500 },
-  selfLabel: { fontSize: '0.8rem', color: '#9ca3af', fontStyle: 'italic' },
+  selfLabel:    { fontSize: '0.8rem', color: '#9ca3af', fontStyle: 'italic' },
+  resetPwdBtn:  { padding: '4px 10px', background: 'transparent', border: '1px solid #c4b5fd', color: '#7c3aed', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 500 },
   msg:       { padding: '2rem', textAlign: 'center', color: '#6b7280' },
   modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
   modal:     { background: '#fff', borderRadius: '12px', padding: '2rem', width: '100%', maxWidth: '480px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' },

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import SmartInputPanel from '../components/SmartInputPanel';
 
 const STATUS_COLORS = {
   COMPLIANT: '#16a34a',
@@ -68,9 +69,20 @@ export default function Compliance() {
           <h1 style={styles.title}>Compliance</h1>
           <p style={styles.subtitle}>{checks.length} checks</p>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <SmartInputPanel
+            section="compliance"
+            triggerLabel="🎙️ Dictate Finding"
+            triggerStyle={{ fontSize: 12, padding: '7px 14px' }}
+            reportMode={true}
+            reportType="compliance"
+            onConfirm={(fields) => {
+              window.__compliancePreFill = fields;
+              setShowAdd(true);
+            }}
+          />
           <button style={styles.exportBtn} onClick={() => exportCompliancePDF(checks)} disabled={checks.length === 0}>Export PDF</button>
-          <button style={styles.createBtn} onClick={() => setShowAdd(true)}>+ Add Check</button>
+          <button style={styles.createBtn} onClick={() => { window.__compliancePreFill = null; setShowAdd(true); }}>+ Add Check</button>
         </div>
       </div>
 
@@ -219,9 +231,17 @@ function ComplianceDetailModal({ check, onClose, onUpdated }) {
 }
 
 function AddComplianceModal({ onClose, onCreated }) {
-  const [form, setForm] = useState({ check_type: 'SAFEGUARDING', title: '', description: '', due_date: '', assigned_to: '' });
+  const preFill = window.__compliancePreFill ?? {};
+  const [form, setForm] = useState({
+    check_type: preFill.area ?? 'SAFEGUARDING',
+    title: preFill.finding ?? preFill.area ?? '',
+    description: preFill.action_required ?? preFill.evidence ?? '',
+    due_date: preFill.due_date ?? '',
+    assigned_to: preFill.responsible_person ?? '',
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [hasPreFill] = useState(Object.keys(preFill).length > 0);
 
   function set(f, v) { setForm((p) => ({ ...p, [f]: v })); }
 
@@ -249,6 +269,11 @@ function AddComplianceModal({ onClose, onCreated }) {
           <button style={modalStyles.close} onClick={onClose}>×</button>
         </div>
         <form onSubmit={submit} style={modalStyles.body}>
+          {hasPreFill && (
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', marginBottom: '1rem', fontSize: 13, color: '#15803d', fontWeight: 600 }}>
+              ✓ Fields pre-filled from Smart Input — review and complete remaining fields.
+            </div>
+          )}
           {error && <p style={{ color: '#dc2626', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</p>}
           <div style={formStyles.row}>
             <Field label="Check Type" required>

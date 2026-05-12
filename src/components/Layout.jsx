@@ -50,6 +50,11 @@ export default function Layout({ children, onLogout }) {
   const user     = getCurrentUser();
   const role     = user.role || 'STAFF';
   const [criticalTasks, setCriticalTasks] = useState([]);
+  const [changePwdOpen, setChangePwdOpen] = useState(false);
+  const [changePwdForm, setChangePwdForm] = useState({ current_password: '', new_password: '' });
+  const [changePwdLoading, setChangePwdLoading] = useState(false);
+  const [changePwdError,   setChangePwdError]   = useState('');
+  const [changePwdSuccess, setChangePwdSuccess] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
   const bellRef = useRef(null);
 
@@ -74,6 +79,19 @@ export default function Layout({ children, onLogout }) {
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [bellOpen]);
+
+  async function handleChangePassword(e) {
+    e.preventDefault();
+    setChangePwdLoading(true); setChangePwdError(''); setChangePwdSuccess(false);
+    try {
+      await api.post('/api/auth/change-password', changePwdForm);
+      setChangePwdSuccess(true);
+      setChangePwdForm({ current_password: '', new_password: '' });
+      setTimeout(() => { setChangePwdOpen(false); setChangePwdSuccess(false); }, 1800);
+    } catch (err) {
+      setChangePwdError(err.response?.data?.error ?? 'Failed to change password');
+    } finally { setChangePwdLoading(false); }
+  }
 
   function logout() {
     localStorage.removeItem('token');
@@ -231,6 +249,60 @@ export default function Layout({ children, onLogout }) {
             </div>
           )}
         </div>
+
+        {/* Change Password modal */}
+        {changePwdOpen && (
+          <div style={cpStyles.overlay}>
+            <div style={cpStyles.modal}>
+              <h2 style={cpStyles.title}>Change Password</h2>
+              {changePwdSuccess && (
+                <div style={cpStyles.success}>Password changed successfully!</div>
+              )}
+              {changePwdError && (
+                <div style={cpStyles.error}>{changePwdError}</div>
+              )}
+              {!changePwdSuccess && (
+                <form onSubmit={handleChangePassword} style={cpStyles.form}>
+                  <div style={cpStyles.row}>
+                    <label style={cpStyles.label}>Current Password</label>
+                    <input
+                      style={cpStyles.input}
+                      type="password"
+                      value={changePwdForm.current_password}
+                      onChange={(e) => setChangePwdForm({ ...changePwdForm, current_password: e.target.value })}
+                      required
+                      autoFocus
+                    />
+                  </div>
+                  <div style={cpStyles.row}>
+                    <label style={cpStyles.label}>New Password</label>
+                    <input
+                      style={cpStyles.input}
+                      type="password"
+                      value={changePwdForm.new_password}
+                      onChange={(e) => setChangePwdForm({ ...changePwdForm, new_password: e.target.value })}
+                      required
+                      minLength={8}
+                      placeholder="Min. 8 characters"
+                    />
+                  </div>
+                  <div style={cpStyles.actions}>
+                    <button type="button" style={cpStyles.cancel} onClick={() => { setChangePwdOpen(false); setChangePwdError(''); setChangePwdForm({ current_password: '', new_password: '' }); }}>
+                      Cancel
+                    </button>
+                    <button type="submit" style={cpStyles.save} disabled={changePwdLoading}>
+                      {changePwdLoading ? 'Saving…' : 'Change Password'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        )}
+
+        <button style={styles.changePwdBtn} onClick={() => { setChangePwdOpen(true); setChangePwdError(''); setChangePwdSuccess(false); }}>
+          <span>🔑</span> Change Password
+        </button>
 
         <button style={styles.logoutBtn} onClick={logout}>
           <span>↩</span> Logout
@@ -458,10 +530,39 @@ const styles = {
     textAlign: 'left',
     flexShrink: 0,
   },
+  changePwdBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    margin: '0 0.75rem 0.25rem',
+    padding: '0.6rem 0.75rem',
+    background: 'transparent',
+    border: '1px solid #2d2d4e',
+    borderRadius: '6px',
+    color: '#8888aa',
+    cursor: 'pointer',
+    fontSize: '0.85rem',
+    textAlign: 'left',
+  },
   content: {
     flex: 1,
     padding: '2rem',
     overflowY: 'auto',
     minWidth: 0,
   },
+};
+
+const cpStyles = {
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000 },
+  modal:   { background: '#fff', borderRadius: '12px', padding: '2rem', width: '100%', maxWidth: '380px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' },
+  title:   { margin: '0 0 1.25rem', fontSize: '1.1rem', fontWeight: 700, color: '#1a1a2e' },
+  form:    { display: 'flex', flexDirection: 'column', gap: '1rem' },
+  row:     { display: 'flex', flexDirection: 'column', gap: '4px' },
+  label:   { fontSize: '0.82rem', fontWeight: 600, color: '#374151' },
+  input:   { padding: '0.55rem 0.8rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.9rem', outline: 'none', background: '#f9fafb' },
+  actions: { display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.25rem' },
+  cancel:  { padding: '0.5rem 1.1rem', background: 'transparent', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.88rem', cursor: 'pointer', color: '#374151' },
+  save:    { padding: '0.5rem 1.1rem', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer' },
+  error:   { background: '#fee2e2', color: '#991b1b', padding: '0.6rem 0.8rem', borderRadius: '6px', fontSize: '0.85rem', marginBottom: '0.25rem' },
+  success: { background: '#dcfce7', color: '#166534', padding: '0.6rem 0.8rem', borderRadius: '6px', fontSize: '0.85rem', marginBottom: '0.25rem', textAlign: 'center', fontWeight: 600 },
 };

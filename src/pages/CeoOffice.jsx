@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import api from '../services/api';
+import SmartInputPanel from '../components/SmartInputPanel';
 
 function getUserRole() {
   try { return JSON.parse(localStorage.getItem('user') || '{}').role ?? null; } catch { return null; }
@@ -126,6 +127,14 @@ function CommandBar() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   }
 
+  // When CEO dictates a command via SmartInputPanel, extract intent and send it
+  function handleSmartCommand(fields) {
+    const cmd = fields.intent
+      ? `${fields.intent}${fields.subject ? ': ' + fields.subject : ''}${fields.key_points ? '. ' + fields.key_points : ''}`
+      : Object.values(fields).filter(Boolean).join('. ');
+    if (cmd.trim()) send(cmd.trim());
+  }
+
   return (
     <div style={styles.commandSection}>
       <div style={styles.commandInputRow}>
@@ -146,6 +155,21 @@ function CommandBar() {
         >
           {loading ? <Spinner size={16} colour="#fff" /> : '↑ Send'}
         </button>
+      </div>
+
+      {/* Voice / Smart input for CEO */}
+      <div style={{ marginTop: 10 }}>
+        <SmartInputPanel
+          section="ceo-command"
+          triggerLabel="🎙️ Dictate Command"
+          triggerStyle={{ fontSize: 12, padding: '7px 14px' }}
+          onConfirm={handleSmartCommand}
+          reportMode={true}
+          reportType="custom"
+        />
+        <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 10 }}>
+          Speak or paste raw notes — AI converts to command
+        </span>
       </div>
 
       {/* Quick chips */}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import SmartInputPanel from '../components/SmartInputPanel';
 
 const STATUS_COLORS = {
   DRAFT: '#9ca3af',
@@ -40,7 +41,20 @@ export default function CarePlans() {
           <h1 style={styles.title}>Care Plans</h1>
           <p style={styles.subtitle}>{plans.length} total</p>
         </div>
-        <button style={styles.createBtn} onClick={() => setShowCreate(true)}>+ New Care Plan</button>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <SmartInputPanel
+            section="care-plan"
+            triggerLabel="🎙️ Dictate Care Plan"
+            triggerStyle={{ fontSize: 12, padding: '7px 14px' }}
+            reportMode={true}
+            reportType="care-review"
+            onConfirm={(fields) => {
+              window.__carePlanPreFill = fields;
+              setShowCreate(true);
+            }}
+          />
+          <button style={styles.createBtn} onClick={() => { window.__carePlanPreFill = null; setShowCreate(true); }}>+ New Care Plan</button>
+        </div>
       </div>
 
       <div style={styles.filterBar}>
@@ -202,17 +216,23 @@ function CarePlanDetailModal({ plan, onClose, onUpdated }) {
 
 function CreateCarePlanModal({ onClose, onCreated }) {
   const [serviceUsers, setServiceUsers] = useState([]);
+  const preFill = window.__carePlanPreFill ?? {};
   const [form, setForm] = useState({
     service_user_id: '',
-    title: '', description: '', goals_raw: '',
-    review_date: '', created_by: '',
+    title: preFill.title ?? '',
+    description: preFill.notes ?? preFill.support_needs ?? '',
+    goals_raw: preFill.goals ?? '',
+    review_date: preFill.review_date ?? '',
+    created_by: preFill.key_worker ?? '',
     status: 'DRAFT',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [hasPreFill] = useState(Object.keys(preFill).length > 0);
 
   useEffect(() => {
     api.get('/api/service-users').then((res) => setServiceUsers(res.data.service_users ?? [])).catch(() => {});
+    return () => { window.__carePlanPreFill = null; };
   }, []);
 
   function set(field, value) { setForm((p) => ({ ...p, [field]: value })); }
@@ -253,6 +273,11 @@ function CreateCarePlanModal({ onClose, onCreated }) {
           <button style={modalStyles.close} onClick={onClose}>×</button>
         </div>
         <form onSubmit={submit} style={modalStyles.body}>
+          {hasPreFill && (
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', marginBottom: '1rem', fontSize: 13, color: '#15803d', fontWeight: 600 }}>
+              ✓ Fields pre-filled from Smart Input — review and complete remaining fields.
+            </div>
+          )}
           {error && <p style={{ color: '#dc2626', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</p>}
           <Field label="Service User" required>
             <select style={formStyles.input} value={form.service_user_id} onChange={(e) => set('service_user_id', e.target.value)} required>
