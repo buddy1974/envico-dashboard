@@ -218,6 +218,12 @@ function StatusStrip() {
     setRefreshing(false);
   }
 
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 900);
+    window.addEventListener('resize', check, { passive: true });
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
@@ -228,7 +234,7 @@ function StatusStrip() {
           {refreshing ? '···' : '↻ Refresh'}
         </button>
       </div>
-      <div style={s.strip}>
+      <div style={{ ...s.strip, gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)' }}>
         {METRIC_DEFS.map((m) => {
           const val = values[m.id];
           return (
@@ -438,7 +444,7 @@ export default function CeoOnboarding() {
           <span style={s.sectionTitle}>All Modules</span>
           <span style={s.sectionSub}>8 phases · 16 modules · fully operational</span>
         </div>
-        <div style={s.modGrid}>
+        <div style={{ ...s.modGrid, gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)' }}>
           {MODULES.map((mod) => (
             <ModuleCard key={mod.to} mod={mod} onOpen={(to) => navigate(to)} />
           ))}
@@ -538,7 +544,7 @@ const s = {
   },
   strip: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
+    gridTemplateColumns: 'repeat(4, 1fr)', /* overridden inline */
     gap: '0.75rem',
   },
   metricCard: {
@@ -607,7 +613,7 @@ const s = {
   },
   modGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
+    gridTemplateColumns: 'repeat(3, 1fr)', /* overridden inline */
     gap: '0.75rem',
   },
 

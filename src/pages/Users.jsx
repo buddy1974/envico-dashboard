@@ -33,6 +33,12 @@ export default function Users() {
   const [form, setForm]           = useState(EMPTY_FORM);
   const [saving, setSaving]       = useState(false);
   const [formError, setFormError] = useState('');
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const _checkMobile = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', _checkMobile, { passive: true });
+    return () => window.removeEventListener('resize', _checkMobile);
+  }, []);
   const [actionLoading, setAL]    = useState(null);
   const [resetModal, setResetModal] = useState(null);   // user object or null
   const [resetPwd,   setResetPwd]   = useState('');
@@ -359,11 +365,11 @@ const styles = {
   title:  { margin: 0, fontSize: '1.5rem', fontWeight: 700, color: '#1a1a2e' },
   sub:    { margin: '4px 0 0', fontSize: '0.85rem', color: '#6b7280' },
   addBtn: { padding: '0.6rem 1.25rem', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' },
-  cards:  { display: 'flex', gap: '1rem', flexWrap: 'wrap' },
+  cards:  { display: 'flex', gap: '0.75rem', flexWrap: 'wrap' },
   card:   { background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '1rem 1.5rem', minWidth: '110px', textAlign: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' },
   cardNum:   { fontSize: '1.8rem', fontWeight: 800, color: '#1a1a2e', lineHeight: 1 },
   cardLabel: { fontSize: '0.78rem', color: '#6b7280', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' },
-  tableWrap: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px', overflow: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' },
+  tableWrap: { overflowX: 'auto', WebkitOverflowScrolling: 'touch', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px', overflow: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' },
   table: { width: '100%', borderCollapse: 'collapse' },
   th:    { padding: '0.75rem 1rem', background: '#f9fafb', textAlign: 'left', fontSize: '0.78rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' },
   tr:    { borderBottom: '1px solid #f3f4f6' },

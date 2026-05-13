@@ -15,6 +15,12 @@ function fmt(n) {
 
 export default function Invoices() {
   const [invoices, setInvoices] = useState([]);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const _checkMobile = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', _checkMobile, { passive: true });
+    return () => window.removeEventListener('resize', _checkMobile);
+  }, []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selected, setSelected] = useState(null);
@@ -337,7 +343,7 @@ function Field({ label, children, required }) {
 const actionBtn = { padding: '0.5rem 1.1rem', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', fontSize: '0.88rem', fontWeight: 600 };
 
 const styles = {
-  pageHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' },
+  pageHeader: { display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'flex-start', marginBottom: '1.25rem' },
   title: { margin: '0 0 0.25rem', fontSize: '1.4rem', fontWeight: 700, color: '#1a1a2e' },
   subtitle: { margin: 0, fontSize: '0.85rem', color: '#6b7280' },
   createBtn: { background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.6rem 1.1rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600 },
@@ -347,7 +353,7 @@ const styles = {
   filterBtn: { padding: '5px 14px', borderRadius: '20px', border: '1px solid #d1d5db', background: '#f9fafb', color: '#374151', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 500 },
   filterBtnActive: { background: '#1a1a2e', color: '#fff', border: '1px solid #1a1a2e' },
   state: { color: '#6b7280', fontSize: '0.95rem' },
-  tableWrap: { background: '#fff', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', overflow: 'hidden' },
+  tableWrap: { overflowX: 'auto', WebkitOverflowScrolling: 'touch', background: '#fff', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', overflow: 'auto' },
   table: { width: '100%', borderCollapse: 'collapse' },
   th: { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' },
   row: { cursor: 'pointer' },
@@ -360,7 +366,7 @@ const styles = {
 const modalStyles = {
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
   box: { background: '#fff', borderRadius: '10px', width: '520px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid #e5e7eb' },
+  header: { display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid #e5e7eb' },
   title: { margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#1a1a2e' },
   close: { background: 'transparent', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#9ca3af', lineHeight: 1 },
   body: { padding: '1.5rem' },

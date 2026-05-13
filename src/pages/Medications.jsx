@@ -14,6 +14,13 @@ export default function Medications() {
   const [selected, setSelected] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [filterStatus, setFilterStatus] = useState('ALL');
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 700);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 700);
+    window.addEventListener('resize', check, { passive: true });
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   useEffect(() => { fetchMedications(); }, []);
 
@@ -58,38 +65,68 @@ export default function Medications() {
       {error && <p style={{ ...styles.state, color: '#dc2626' }}>{error}</p>}
 
       {!loading && !error && (
-        <div style={styles.tableWrap}>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                {['Service User', 'Medication', 'Dosage', 'Frequency', 'Route', 'Status'].map((h) => (
-                  <th key={h} style={styles.th}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 && (
-                <tr><td colSpan={6} style={styles.empty}>No medications found.</td></tr>
-              )}
-              {filtered.map((m) => (
-                <tr key={m.id} style={styles.row} onClick={() => setSelected(m)}>
-                  <td style={styles.td}>
-                    <span style={styles.name}>
-                      {m.service_user
-                        ? `${m.service_user.first_name} ${m.service_user.last_name}`
-                        : `User #${m.service_user_id}`}
+        isMobile ? (
+          /* ── Mobile card list ─────────────────────────── */
+          <div style={styles.cardList}>
+            {filtered.length === 0 && <p style={styles.empty}>No medications found.</p>}
+            {filtered.map((m) => {
+              const userName = m.service_user
+                ? `${m.service_user.first_name} ${m.service_user.last_name}`
+                : `User #${m.service_user_id}`;
+              const color = STATUS_COLORS[m.status] ?? '#9ca3af';
+              return (
+                <div key={m.id} style={styles.medCard} onClick={() => setSelected(m)}>
+                  <div style={styles.medCardTop}>
+                    <span style={styles.medCardName}>{m.name}</span>
+                    <span style={{ ...styles.medCardStatus, color, borderColor: color }}>
+                      {m.status}
                     </span>
-                  </td>
-                  <td style={styles.td}><strong>{m.name}</strong></td>
-                  <td style={styles.td}>{m.dosage}</td>
-                  <td style={styles.td}>{m.frequency}</td>
-                  <td style={styles.td}>{m.route}</td>
-                  <td style={styles.td}><Badge value={m.status} colors={STATUS_COLORS} /></td>
+                  </div>
+                  <div style={styles.medCardUser}>{userName}</div>
+                  <div style={styles.medCardDetails}>
+                    <span style={styles.medCardChip}>{m.dosage}</span>
+                    <span style={styles.medCardChip}>{m.frequency}</span>
+                    {m.route && <span style={styles.medCardChip}>{m.route}</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* ── Desktop table ────────────────────────────── */
+          <div style={styles.tableWrap}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  {['Service User', 'Medication', 'Dosage', 'Frequency', 'Route', 'Status'].map((h) => (
+                    <th key={h} style={styles.th}>{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.length === 0 && (
+                  <tr><td colSpan={6} style={styles.empty}>No medications found.</td></tr>
+                )}
+                {filtered.map((m) => (
+                  <tr key={m.id} style={styles.row} onClick={() => setSelected(m)}>
+                    <td style={styles.td}>
+                      <span style={styles.name}>
+                        {m.service_user
+                          ? `${m.service_user.first_name} ${m.service_user.last_name}`
+                          : `User #${m.service_user_id}`}
+                      </span>
+                    </td>
+                    <td style={styles.td}><strong>{m.name}</strong></td>
+                    <td style={styles.td}>{m.dosage}</td>
+                    <td style={styles.td}>{m.frequency}</td>
+                    <td style={styles.td}>{m.route}</td>
+                    <td style={styles.td}><Badge value={m.status} colors={STATUS_COLORS} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
       )}
 
       {selected && <MedicationDetailModal med={selected} onClose={() => setSelected(null)} onUpdated={fetchMedications} />}
@@ -288,11 +325,11 @@ function Field({ label, children, required }) {
 const actionBtn = { padding: '0.5rem 1.1rem', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', fontSize: '0.88rem', fontWeight: 600 };
 
 const styles = {
-  pageHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' },
+  pageHeader: { display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'flex-start', marginBottom: '1rem' },
   title: { margin: '0 0 0.25rem', fontSize: '1.4rem', fontWeight: 700, color: '#1a1a2e' },
   subtitle: { margin: 0, fontSize: '0.85rem', color: '#6b7280' },
   createBtn: { background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.6rem 1.1rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600 },
-  filterBar: { display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' },
+  filterBar: { display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.25rem' },
   filterBtn: { padding: '5px 14px', borderRadius: '20px', border: '1px solid #d1d5db', background: '#f9fafb', color: '#374151', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 500 },
   filterBtnActive: { background: '#1a1a2e', color: '#fff', border: '1px solid #1a1a2e' },
   state: { color: '#6b7280', fontSize: '0.95rem' },
@@ -308,7 +345,7 @@ const styles = {
 const modalStyles = {
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
   box: { background: '#fff', borderRadius: '10px', width: '520px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid #e5e7eb' },
+  header: { display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid #e5e7eb' },
   title: { margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#1a1a2e' },
   close: { background: 'transparent', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#9ca3af', lineHeight: 1 },
   body: { padding: '1.5rem' },
@@ -319,4 +356,14 @@ const formStyles = {
   label: { display: 'block', fontSize: '0.83rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' },
   input: { width: '100%', padding: '0.55rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.9rem', boxSizing: 'border-box' },
   submit: { width: '100%', padding: '0.7rem', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '0.95rem', fontWeight: 600, cursor: 'pointer', marginTop: '0.5rem' },
+
+  /* Mobile card list */
+  cardList:      { display: 'flex', flexDirection: 'column', gap: '0.75rem' },
+  medCard:       { background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '1rem', cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', transition: 'box-shadow 0.15s' },
+  medCardTop:    { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' },
+  medCardName:   { fontSize: '1rem', fontWeight: 700, color: '#1a1a2e' },
+  medCardStatus: { fontSize: '0.7rem', fontWeight: 700, border: '1px solid', borderRadius: '20px', padding: '2px 9px', textTransform: 'uppercase', letterSpacing: '0.04em' },
+  medCardUser:   { fontSize: '0.82rem', color: '#6b7280', marginBottom: '0.6rem' },
+  medCardDetails:{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' },
+  medCardChip:   { background: '#f3f4f6', color: '#374151', fontSize: '0.78rem', fontWeight: 500, borderRadius: '6px', padding: '3px 9px' },
 };

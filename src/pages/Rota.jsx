@@ -90,6 +90,12 @@ function AddShiftModal({ staff, prefillDate, onClose, onSaved }) {
     start_time: '07:00',
     end_time: '15:00',
   });
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const _checkMobile = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', _checkMobile, { passive: true });
+    return () => window.removeEventListener('resize', _checkMobile);
+  }, []);
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
 
@@ -495,7 +501,7 @@ const styles = {
     padding: '0.4rem 0.9rem', background: '#d1fae5', color: '#065f46',
     borderRadius: '6px', fontSize: '0.82rem', fontWeight: 700,
   },
-  tableWrap: {
+  tableWrap: { overflowX: 'auto', WebkitOverflowScrolling: 'touch',
     background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px',
     overflow: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
   },
@@ -569,7 +575,7 @@ const modal = {
     boxShadow: '0 24px 60px rgba(0,0,0,0.2)', padding: '1.5rem',
     maxHeight: '90vh', overflowY: 'auto',
   },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' },
+  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1.25rem' },
   title: { margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#1a1a2e' },
   close: { background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#9ca3af', padding: 0 },
   err: { background: '#fee2e2', color: '#991b1b', padding: '0.6rem 0.75rem', borderRadius: '6px', fontSize: '0.85rem', marginBottom: '1rem' },
