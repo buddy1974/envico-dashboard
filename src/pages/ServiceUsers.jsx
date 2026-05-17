@@ -19,6 +19,11 @@ const CARE_TYPE_LABELS = {
 export default function ServiceUsers() {
   const [users, setUsers] = useState([]);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const [inviteModal, setInviteModal] = useState(null); // service user object
+  const [inviteForm, setInviteForm]   = useState({ family_name: '', family_email: '' });
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteResult, setInviteResult]   = useState(null);
+  const [inviteError, setInviteError]     = useState('');
   useEffect(() => {
     const _checkMobile = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', _checkMobile, { passive: true });
@@ -40,6 +45,21 @@ export default function ServiceUsers() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleInvite(e) {
+    e.preventDefault();
+    setInviteLoading(true); setInviteError(''); setInviteResult(null);
+    try {
+      const res = await api.post('/api/family/invite', {
+        family_name:     inviteForm.family_name,
+        family_email:    inviteForm.family_email,
+        service_user_id: inviteModal.id,
+      });
+      setInviteResult(res.data);
+    } catch (err) {
+      setInviteError(err.response?.data?.error ?? 'Failed to create family account');
+    } finally { setInviteLoading(false); }
   }
 
   return (
@@ -73,7 +93,7 @@ export default function ServiceUsers() {
           <table style={styles.table}>
             <thead>
               <tr>
-                {['Name', 'Care Type', 'Date of Birth', 'Status'].map((h) => (
+                {['Name', 'Care Type', 'Date of Birth', 'Status', 'Family Access'].map((h) => (
                   <th key={h} style={styles.th}>{h}</th>
                 ))}
               </tr>
@@ -92,10 +112,63 @@ export default function ServiceUsers() {
                   <td style={styles.td}>
                     <Badge value={u.status} colors={STATUS_COLORS} />
                   </td>
+                  <td style={styles.td} onClick={(e) => e.stopPropagation()}>
+                    <button
+                      style={styles.familyBtn}
+                      onClick={() => { setInviteModal(u); setInviteForm({ family_name: '', family_email: '' }); setInviteResult(null); setInviteError(''); }}
+                    >
+                      👨‍👩‍👧 Grant Access
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Family Invite Modal */}
+      {inviteModal && (
+        <div style={fiStyles.overlay}>
+          <div style={fiStyles.modal}>
+            <div style={fiStyles.header}>
+              <span style={{ fontSize: '1.5rem' }}>👨‍👩‍👧</span>
+              <div>
+                <h2 style={fiStyles.title}>Grant Family Portal Access</h2>
+                <p style={fiStyles.sub}>For <strong>{inviteModal.first_name} {inviteModal.last_name}</strong>'s family</p>
+              </div>
+              <button style={fiStyles.close} onClick={() => setInviteModal(null)}>✕</button>
+            </div>
+
+            {inviteResult ? (
+              <div style={fiStyles.success}>
+                <p style={{ fontWeight: 700, marginBottom: '0.5rem', color: '#166534' }}>✅ Account created!</p>
+                <div style={fiStyles.credBox}>
+                  <p style={fiStyles.credLine}><strong>Email:</strong> {inviteResult.credentials?.email}</p>
+                  <p style={fiStyles.credLine}><strong>Password:</strong> {inviteResult.credentials?.password}</p>
+                  <p style={fiStyles.credLine}><strong>Portal:</strong> {inviteResult.credentials?.portal_url}</p>
+                </div>
+                <p style={{ fontSize: '0.78rem', color: '#6b7280', marginTop: '0.5rem' }}>
+                  Share these credentials securely. The family member can change their password after first login.
+                </p>
+                <button style={fiStyles.doneBtn} onClick={() => setInviteModal(null)}>Done</button>
+              </div>
+            ) : (
+              <form onSubmit={handleInvite} style={fiStyles.form}>
+                {inviteError && <div style={fiStyles.error}>{inviteError}</div>}
+                <label style={fiStyles.label}>Family Member Name *</label>
+                <input style={fiStyles.input} value={inviteForm.family_name} onChange={(e) => setInviteForm({ ...inviteForm, family_name: e.target.value })} placeholder="e.g. Sarah Smith" required />
+                <label style={fiStyles.label}>Family Member Email *</label>
+                <input style={fiStyles.input} type="email" value={inviteForm.family_email} onChange={(e) => setInviteForm({ ...inviteForm, family_email: e.target.value })} placeholder="sarah@example.com" required />
+                <div style={fiStyles.actions}>
+                  <button type="button" style={fiStyles.cancel} onClick={() => setInviteModal(null)}>Cancel</button>
+                  <button type="submit" style={fiStyles.submit} disabled={inviteLoading}>
+                    {inviteLoading ? 'Creating…' : 'Create Portal Account'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       )}
 
@@ -291,6 +364,7 @@ const styles = {
   table: { width: '100%', borderCollapse: 'collapse' },
   th: { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' },
   row: { cursor: 'pointer' },
+  familyBtn: { padding: '4px 10px', background: '#f0fdf4', border: '1px solid #86efac', color: '#166534', borderRadius: '6px', fontSize: '0.78rem', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' },
   td: { padding: '0.85rem 1rem', fontSize: '0.9rem', color: '#374151', borderBottom: '1px solid #f3f4f6' },
   name: { fontWeight: 600, color: '#1a1a2e' },
   empty: { padding: '2rem', textAlign: 'center', color: '#9ca3af', fontSize: '0.9rem' },
@@ -310,4 +384,24 @@ const formStyles = {
   label: { display: 'block', fontSize: '0.83rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' },
   input: { width: '100%', padding: '0.55rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.9rem', boxSizing: 'border-box' },
   submit: { width: '100%', padding: '0.7rem', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '0.95rem', fontWeight: 600, cursor: 'pointer', marginTop: '0.5rem' },
+};
+
+const fiStyles = {
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' },
+  modal:   { background: '#fff', borderRadius: '14px', width: '100%', maxWidth: '440px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', overflow: 'hidden' },
+  header:  { display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1.25rem 1.5rem', background: '#f0fdf4', borderBottom: '1px solid #bbf7d0' },
+  title:   { margin: 0, fontSize: '1rem', fontWeight: 700, color: '#14532d' },
+  sub:     { margin: 0, fontSize: '0.8rem', color: '#166534' },
+  close:   { marginLeft: 'auto', background: 'none', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#6b7280' },
+  form:    { padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' },
+  label:   { fontSize: '0.82rem', fontWeight: 600, color: '#374151' },
+  input:   { padding: '0.55rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '7px', fontSize: '0.9rem', outline: 'none' },
+  error:   { background: '#fee2e2', color: '#991b1b', padding: '0.5rem 0.75rem', borderRadius: '6px', fontSize: '0.82rem' },
+  actions: { display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.25rem' },
+  cancel:  { padding: '0.5rem 1.1rem', background: 'transparent', border: '1px solid #d1d5db', borderRadius: '7px', fontSize: '0.88rem', cursor: 'pointer', color: '#374151' },
+  submit:  { padding: '0.5rem 1.25rem', background: '#15803d', color: '#fff', border: 'none', borderRadius: '7px', fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer' },
+  success: { padding: '1.25rem 1.5rem' },
+  credBox: { background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.75rem', marginTop: '0.5rem' },
+  credLine:{ margin: '0.2rem 0', fontSize: '0.85rem', color: '#14532d', fontFamily: 'monospace' },
+  doneBtn: { marginTop: '1rem', width: '100%', padding: '0.6rem', background: '#15803d', color: '#fff', border: 'none', borderRadius: '7px', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer' },
 };
