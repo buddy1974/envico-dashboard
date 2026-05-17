@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import OCRDocumentScanner from '../components/OCRDocumentScanner';
 
 const STATUS_COLORS = {
   DRAFT: '#9ca3af',
@@ -260,6 +261,18 @@ function CreatePayrollModal({ onClose, onCreated }) {
         </div>
         <form onSubmit={submit} style={modalStyles.body}>
           {error && <p style={{ color: '#dc2626', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</p>}
+          <OCRDocumentScanner
+            context="payroll"
+            label="Scan timesheet or payroll document"
+            onImport={(data) => {
+              if (data.hours_worked)   set('hours_worked', String(data.hours_worked));
+              if (data.hourly_rate)    set('hourly_rate', String(data.hourly_rate).replace(/[£,]/g, ''));
+              if (data.overtime_hours) set('overtime_hours', String(data.overtime_hours));
+              if (data.deductions)     set('deductions', String(data.deductions).replace(/[£,]/g, ''));
+              if (data.period_start)   set('period_start', data.period_start);
+              if (data.period_end)     set('period_end', data.period_end);
+            }}
+          />
           <Field label="Staff Member" required>
             <select style={formStyles.input} value={form.staff_id} onChange={(e) => set('staff_id', e.target.value)} required>
               <option value="">Select staff member...</option>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import OCRDocumentScanner from '../components/OCRDocumentScanner';
 
 const PIPELINE = ['NEW', 'SHORTLISTED', 'INTERVIEW', 'OFFERED', 'HIRED', 'REJECTED'];
 
@@ -275,6 +276,19 @@ function AddApplicationModal({ onClose, onCreated }) {
         </div>
         <form onSubmit={submit} style={modalStyles.body}>
           {error && <p style={{ color: '#dc2626', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</p>}
+          <OCRDocumentScanner
+            context="recruitment"
+            label="Scan CV or application form"
+            onImport={(data) => {
+              if (data.first_name)    set('first_name', data.first_name);
+              if (data.last_name)     set('last_name', data.last_name);
+              if (data.email)         set('email', data.email);
+              if (data.phone)         set('phone', data.phone);
+              if (data.role_applied)  set('role_applied', data.role_applied);
+              if (data.interview_date) set('interview_date', data.interview_date);
+              if (data.notes)         set('notes', data.notes);
+            }}
+          />
           <div style={formStyles.row}>
             <Field label="First Name" required><input style={formStyles.input} value={form.first_name} onChange={(e) => set('first_name', e.target.value)} required /></Field>
             <Field label="Last Name" required><input style={formStyles.input} value={form.last_name} onChange={(e) => set('last_name', e.target.value)} required /></Field>

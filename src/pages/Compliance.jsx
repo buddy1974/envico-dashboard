@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
 import SmartInputPanel from '../components/SmartInputPanel';
+import OCRDocumentScanner from '../components/OCRDocumentScanner';
 
 const STATUS_COLORS = {
   COMPLIANT: '#16a34a',
@@ -281,6 +282,21 @@ function AddComplianceModal({ onClose, onCreated }) {
             </div>
           )}
           {error && <p style={{ color: '#dc2626', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</p>}
+          <OCRDocumentScanner
+            context="compliance"
+            label="Scan compliance note or audit finding"
+            onImport={(data) => {
+              if (data.title || data.finding)     set('title', data.title ?? data.finding);
+              if (data.description || data.evidence) set('description', data.description ?? data.evidence);
+              if (data.responsible_person)        set('assigned_to', data.responsible_person);
+              if (data.due_date)                  set('due_date', data.due_date);
+              if (data.risk_level) {
+                const rl = data.risk_level.toUpperCase();
+                const typeMap = { HIGH: 'REGULATION_CHECK', CRITICAL: 'REGULATION_CHECK', MEDIUM: 'INTERNAL_AUDIT', LOW: 'INTERNAL_AUDIT' };
+                set('check_type', typeMap[rl] ?? 'INTERNAL_AUDIT');
+              }
+            }}
+          />
           <div style={formStyles.row}>
             <Field label="Check Type" required>
               <select style={formStyles.input} value={form.check_type} onChange={(e) => set('check_type', e.target.value)}>

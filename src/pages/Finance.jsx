@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import OCRDocumentScanner from '../components/OCRDocumentScanner';
 
 const CATEGORIES = ['CARE_FEES', 'STAFF_WAGES', 'UTILITIES', 'SUPPLIES', 'TRANSPORT', 'TRAINING', 'OTHER'];
 
@@ -185,6 +186,17 @@ function AddTransactionModal({ onClose, onCreated }) {
         </div>
         <form onSubmit={submit} style={modalStyles.body}>
           {error && <p style={{ color: '#dc2626', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</p>}
+          <OCRDocumentScanner
+            context="finance"
+            label="Scan invoice or receipt"
+            onImport={(data) => {
+              if (data.description)       set('description', data.description);
+              if (data.amount)            set('amount', String(data.amount).replace(/[£,]/g, ''));
+              if (data.reference)         set('reference', data.reference);
+              if (data.due_date || data.transaction_date) set('transaction_date', data.due_date ?? data.transaction_date);
+              if (data.recorded_by || data.staff_name)    set('recorded_by', data.recorded_by ?? data.staff_name);
+            }}
+          />
 
           <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem' }}>
             {['INCOME', 'EXPENSE'].map((t) => (

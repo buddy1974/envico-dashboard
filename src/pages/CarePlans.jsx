@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
 import SmartInputPanel from '../components/SmartInputPanel';
+import OCRDocumentScanner from '../components/OCRDocumentScanner';
 
 const STATUS_COLORS = {
   DRAFT: '#9ca3af',
@@ -285,6 +286,25 @@ function CreateCarePlanModal({ onClose, onCreated }) {
             </div>
           )}
           {error && <p style={{ color: '#dc2626', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</p>}
+          <OCRDocumentScanner
+            context="care-plan"
+            label="Scan care plan or referral document"
+            onImport={(data) => {
+              if (data.title)         set('title', data.title);
+              if (data.description)   set('description', data.description);
+              if (data.goals)         set('goals_raw', Array.isArray(data.goals) ? data.goals.join('\n') : data.goals);
+              if (data.key_worker)    set('created_by', data.key_worker);
+              if (data.review_date)   set('review_date', data.review_date);
+              if (data.support_needs) set('description', (data.description ? data.description + '\n' : '') + data.support_needs);
+              const suName = data.service_user_name ?? data.full_name;
+              if (suName && serviceUsers) {
+                const match = serviceUsers.find((u) =>
+                  `${u.first_name} ${u.last_name}`.toLowerCase().includes(suName.toLowerCase())
+                );
+                if (match) set('service_user_id', String(match.id));
+              }
+            }}
+          />
           <Field label="Service User" required>
             <select style={formStyles.input} value={form.service_user_id} onChange={(e) => set('service_user_id', e.target.value)} required>
               <option value="">Select service user...</option>

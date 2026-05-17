@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import OCRDocumentScanner from '../components/OCRDocumentScanner';
 
 const STATUS_COLORS = {
   ACTIVE: '#16a34a',
@@ -254,6 +255,26 @@ function AddMedicationModal({ onClose, onCreated }) {
         </div>
         <form onSubmit={submit} style={modalStyles.body}>
           {error && <p style={{ color: '#dc2626', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</p>}
+          <OCRDocumentScanner
+            context="medication"
+            label="Scan prescription or MAR sheet"
+            onImport={(data) => {
+              const name = data.medication_name ?? data.name;
+              if (name)             set('name', name);
+              if (data.dosage)      set('dosage', data.dosage);
+              if (data.frequency)   set('frequency', data.frequency);
+              if (data.route)       set('route', data.route);
+              if (data.start_date)  set('start_date', data.start_date);
+              if (data.prescribed_by) set('prescribed_by', data.prescribed_by);
+              const suName = data.service_user_name ?? data.full_name;
+              if (suName && serviceUsers) {
+                const match = serviceUsers.find((u) =>
+                  `${u.first_name} ${u.last_name}`.toLowerCase().includes(suName.toLowerCase())
+                );
+                if (match) set('service_user_id', String(match.id));
+              }
+            }}
+          />
           <Field label="Service User" required>
             <select style={formStyles.input} value={form.service_user_id} onChange={(e) => set('service_user_id', e.target.value)} required>
               <option value="">Select service user...</option>

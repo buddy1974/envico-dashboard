@@ -261,14 +261,20 @@ function CreateUserModal({ onClose, onCreated }) {
             context="referral"
             label="Scan referral form or letter"
             onImport={(data) => {
-              if (data.full_name) {
-                const parts = data.full_name.trim().split(' ');
+              const name = data.full_name ?? data.service_user_name;
+              if (name) {
+                const parts = name.trim().split(' ');
                 set('first_name', parts[0] ?? '');
                 set('last_name', parts.slice(1).join(' ') || '');
               }
               if (data.date_of_birth) set('dob', data.date_of_birth);
-              if (data.phone) set('phone', data.phone);
-              if (data.address) set('address_line1', data.address);
+              if (data.phone)         set('phone', data.phone);
+              if (data.nhs_number)    set('nhs_number', data.nhs_number);
+              if (data.care_type)     set('care_type', data.care_type.toUpperCase().replace(/\s+/g,'_'));
+              if (data.support_needs) set('support_needs', data.support_needs);
+              if (data.address)       set('address_line1', data.address);
+              if (data.postcode)      set('postcode', data.postcode);
+              if (data.city)          set('city', data.city);
             }}
           />
           <div style={formStyles.row}>

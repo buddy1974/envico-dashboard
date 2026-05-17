@@ -6,18 +6,34 @@ const BLUE   = '#00B6FF';
 const YELLOW = '#F5BA21';
 
 const CONTEXT_LABELS = {
-  referral:  'REFERRAL',
-  incident:  'INCIDENT',
-  care_note: 'CARE NOTE',
-  document:  'DOCUMENT',
+  referral:    'REFERRAL',
+  incident:    'INCIDENT',
+  care_note:   'CARE NOTE',
+  document:    'DOCUMENT',
+  medication:  'MEDICATION',
+  compliance:  'COMPLIANCE',
+  'care-plan': 'CARE PLAN',
+  recruitment: 'RECRUITMENT',
+  'staff-doc': 'STAFF DOC',
+  training:    'TRAINING',
+  finance:     'FINANCE',
+  payroll:     'PAYROLL',
 };
 
 // Context → smart-input section mapping
 const CONTEXT_SECTION = {
-  referral:   'referral',
-  incident:   'incident',
-  care_note:  'care-plan',
-  document:   'referral',
+  referral:    'referral',
+  incident:    'incident',
+  care_note:   'care-plan',
+  document:    'referral',
+  medication:  'medication',
+  compliance:  'compliance',
+  'care-plan': 'care-plan',
+  recruitment: 'recruitment',
+  'staff-doc': 'staff-doc',
+  training:    'training',
+  finance:     'finance',
+  payroll:     'payroll',
 };
 
 // File types that can be OCR'd via AI vision
@@ -80,7 +96,8 @@ export default function OCRDocumentScanner({ context, onImport, label }) {
     setFileType(file.type);
 
     const isImage = IMAGE_TYPES.includes(file.type);
-    const isText  = TEXT_TYPES.includes(file.type);
+    // Windows assigns application/vnd.ms-excel to .csv — fall back to filename extension
+    const isText  = TEXT_TYPES.includes(file.type) || /\.(csv|txt|tsv)$/i.test(file.name);
 
     if (isImage) {
       // ── AI Vision OCR path ──────────────────────────────────────────────

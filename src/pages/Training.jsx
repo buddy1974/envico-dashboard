@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import OCRDocumentScanner from '../components/OCRDocumentScanner';
 
 const STATUS_COLORS = {
   COMPLETED: '#16a34a',
@@ -262,6 +263,18 @@ function AddTrainingModal({ onClose, onCreated }) {
         </div>
         <form onSubmit={submit} style={modalStyles.body}>
           {error && <p style={{ color: '#dc2626', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</p>}
+          <OCRDocumentScanner
+            context="training"
+            label="Scan training certificate or record"
+            onImport={(data) => {
+              if (data.training_name)  set('training_name', data.training_name);
+              if (data.training_type)  set('training_type', data.training_type);
+              if (data.provider)       set('provider', data.provider);
+              if (data.completed_date) set('completed_date', data.completed_date);
+              if (data.expiry_date)    set('expiry_date', data.expiry_date);
+              if (data.status)         set('status', data.status.toUpperCase());
+            }}
+          />
           <Field label="Staff Member" required>
             <select style={formStyles.input} value={form.staff_id} onChange={(e) => set('staff_id', e.target.value)} required>
               <option value="">Select staff member...</option>

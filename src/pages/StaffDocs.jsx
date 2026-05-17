@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import OCRDocumentScanner from '../components/OCRDocumentScanner';
 
 const STATUS_COLORS = {
   VALID: '#16a34a',
@@ -270,6 +271,21 @@ function AddDocModal({ onClose, onCreated }) {
         </div>
         <form onSubmit={submit} style={modalStyles.body}>
           {error && <p style={{ color: '#dc2626', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</p>}
+          <OCRDocumentScanner
+            context="staff-doc"
+            label="Scan certificate or DBS document"
+            onImport={(data) => {
+              if (data.title || data.document_type) set('title', data.title ?? data.document_type);
+              if (data.reference_no)  set('reference_no', data.reference_no);
+              if (data.issued_date)   set('issued_date', data.issued_date);
+              if (data.expiry_date)   set('expiry_date', data.expiry_date);
+              if (data.status)        set('status', data.status.toUpperCase());
+              if (data.document_type) {
+                const dt = data.document_type.toUpperCase().replace(/\s+/g,'_');
+                set('type', dt);
+              }
+            }}
+          />
           <Field label="Staff Member" required>
             <select style={formStyles.input} value={form.staff_id} onChange={(e) => set('staff_id', e.target.value)} required>
               <option value="">Select staff member...</option>

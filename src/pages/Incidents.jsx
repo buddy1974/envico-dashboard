@@ -212,10 +212,22 @@ function ReportIncidentModal({ onClose, onCreated }) {
             context="incident"
             label="Scan handwritten incident note"
             onImport={(data) => {
+              if (data.type)        set('type',        data.type.toUpperCase().replace(/\s+/g,'_'));
+              if (data.severity)    set('severity',    data.severity.toUpperCase());
               if (data.description) set('description', data.description);
-              if (data.severity) set('severity', data.severity);
-              if (data.incident_date) set('incident_date', data.incident_date);
-              if (data.immediate_action_taken) set('action_taken', data.immediate_action_taken);
+              if (data.reported_by) set('reported_by', data.reported_by);
+              if (data.location)    set('location',    data.location);
+              if (data.witnesses)   set('witnesses',   data.witnesses);
+              if (data.immediate_action_taken || data.action_taken)
+                set('action_taken', data.immediate_action_taken ?? data.action_taken);
+              // Match service user by name if AI extracted one
+              const suName = data.service_user_name ?? data.full_name;
+              if (suName) {
+                const match = serviceUsers.find((u) =>
+                  `${u.first_name} ${u.last_name}`.toLowerCase().includes(suName.toLowerCase())
+                );
+                if (match) set('service_user_id', String(match.id));
+              }
             }}
           />
           <Field label="Service User" required>
