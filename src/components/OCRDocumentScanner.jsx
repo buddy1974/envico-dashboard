@@ -1,17 +1,32 @@
 import { useRef, useState } from 'react';
 import api from '../services/api';
 
+// Envico brand colours
+const BLUE   = '#00B6FF';
+const YELLOW = '#F5BA21';
+
 const CONTEXT_LABELS = {
-  referral: 'REFERRAL',
-  incident: 'INCIDENT',
+  referral:  'REFERRAL',
+  incident:  'INCIDENT',
   care_note: 'CARE NOTE',
-  document: 'DOCUMENT',
+  document:  'DOCUMENT',
+};
+
+// Context → smart-input section mapping
+const CONTEXT_SECTION = {
+  referral:   'referral',
+  incident:   'incident',
+  care_note:  'care-plan',
+  document:   'referral',
 };
 
 // File types that can be OCR'd via AI vision
 const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
 
-// All accepted file types for attachments
+// File types that can be read as text and sent to smart-input AI
+const TEXT_TYPES = ['text/csv', 'text/plain', 'text/tsv'];
+
+// All accepted file types
 const ACCEPT_ALL = [
   'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif',
   'application/pdf',
@@ -31,14 +46,32 @@ function getFileIcon(mimeType = '') {
   return '📎';
 }
 
+// Normalise smart-input fields → keys the parent onImport handlers expect
+function normaliseSmartFields(fields) {
+  return {
+    ...fields,
+    full_name:     fields.service_user_name ?? fields.full_name ?? null,
+    date_of_birth: fields.date_of_birth ?? null,
+    phone:         fields.phone ?? fields.phone_number ?? null,
+    address:       fields.address ?? fields.address_line1 ?? null,
+    nhs_number:    fields.nhs_number ?? null,
+    type:          fields.type ?? null,
+    severity:      fields.severity ?? null,
+    description:   fields.description ?? null,
+    reported_by:   fields.reported_by ?? null,
+    title:         fields.title ?? null,
+    support_needs: fields.support_needs ?? fields.observation ?? null,
+  };
+}
+
 export default function OCRDocumentScanner({ context, onImport, label }) {
-  const [status, setStatus] = useState('idle'); // idle | loading | success | error | attached
+  const [status, setStatus]   = useState('idle'); // idle | loading | success | error | attached
   const [preview, setPreview] = useState(null);
   const [fileName, setFileName] = useState('');
   const [fileType, setFileType] = useState('');
-  const [result, setResult] = useState(null);
+  const [result, setResult]   = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
-  const fileRef = useRef();
+  const fileRef   = useRef();
   const cameraRef = useRef();
 
   async function processFile(file) {
@@ -47,9 +80,10 @@ export default function OCRDocumentScanner({ context, onImport, label }) {
     setFileType(file.type);
 
     const isImage = IMAGE_TYPES.includes(file.type);
+    const isText  = TEXT_TYPES.includes(file.type);
 
     if (isImage) {
-      // AI OCR path for images
+      // ── AI Vision OCR path ──────────────────────────────────────────────
       setStatus('loading');
       setPreview(URL.createObjectURL(file));
       const reader = new FileReader();
@@ -65,16 +99,48 @@ export default function OCRDocumentScanner({ context, onImport, label }) {
         }
       };
       reader.readAsDataURL(file);
+
+    } else if (isText) {
+      // ── CSV / Text → smart-input AI → auto-fill form ────────────────────
+      setStatus('loading');
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const rawText = String(e.target.result);
+        const section = CONTEXT_SECTION[context] ?? 'referral';
+        try {
+          const res = await api.post('/api/smart-input/process', {
+            rawText: rawText.slice(0, 4000),
+            section,
+          });
+          if (res.data?.fields) {
+            const normalised = normaliseSmartFields(res.data.fields);
+            const clean = Object.fromEntries(
+              Object.entries(normalised).filter(([, v]) => v !== null && v !== undefined && v !== '')
+            );
+            clean.confidence = res.data.confidence ?? 'MEDIUM';
+            setResult(clean);
+            setStatus('success');
+          } else {
+            throw new Error('No fields extracted');
+          }
+        } catch {
+          // Fallback: attach without auto-fill
+          setStatus('attached');
+          onImport?.({ attached_file_name: file.name, attached_file_type: file.type, confidence: 'LOW' });
+        }
+      };
+      reader.readAsText(file);
+
     } else {
-      // Non-image: attach directly — notify parent with file metadata
+      // ── PDF / Word / Excel → attach directly ────────────────────────────
       setStatus('attached');
       const reader = new FileReader();
       reader.onload = (e) => {
         const base64 = e.target.result.split(',')[1];
         onImport?.({
-          attached_file_name: file.name,
-          attached_file_type: file.type,
-          attached_file_size: `${(file.size / 1024).toFixed(1)} KB`,
+          attached_file_name:   file.name,
+          attached_file_type:   file.type,
+          attached_file_size:   `${(file.size / 1024).toFixed(1)} KB`,
           attached_file_base64: base64,
           confidence: 'HIGH',
         });
@@ -99,9 +165,10 @@ export default function OCRDocumentScanner({ context, onImport, label }) {
     if (cameraRef.current) cameraRef.current.value = '';
   }
 
-  const fields = result ? Object.entries(result).filter(([k]) => k !== 'confidence' && result[k]) : [];
+  const SKIP_KEYS = new Set(['confidence', 'attached_file_name', 'attached_file_type', 'attached_file_size', 'attached_file_base64']);
+  const fields     = result ? Object.entries(result).filter(([k]) => !SKIP_KEYS.has(k) && result[k]) : [];
   const confidence = result?.confidence ?? null;
-  const confColor = confidence === 'HIGH' ? '#16a34a' : confidence === 'MEDIUM' ? '#ca8a04' : '#dc2626';
+  const confColor  = confidence === 'HIGH' ? '#16a34a' : confidence === 'MEDIUM' ? '#ca8a04' : '#dc2626';
 
   return (
     <div style={s.card}>
@@ -116,60 +183,50 @@ export default function OCRDocumentScanner({ context, onImport, label }) {
       {status === 'idle' && (
         <>
           <div style={s.buttons}>
-            <button type="button" style={s.btnPurple} onClick={() => cameraRef.current?.click()}>
+            <button type="button" style={s.btnBlue} onClick={() => cameraRef.current?.click()}>
               📷 Take Photo
             </button>
             <button type="button" style={s.btnGray} onClick={() => fileRef.current?.click()}>
               ⬆ Attach File
             </button>
-            <input
-              ref={cameraRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              style={{ display: 'none' }}
-              onChange={handleFile}
-            />
-            <input
-              ref={fileRef}
-              type="file"
-              accept={ACCEPT_ALL}
-              style={{ display: 'none' }}
-              onChange={handleFile}
-            />
+            <input ref={cameraRef} type="file" accept="image/*" capture="environment"
+              style={{ display: 'none' }} onChange={handleFile} />
+            <input ref={fileRef} type="file" accept={ACCEPT_ALL}
+              style={{ display: 'none' }} onChange={handleFile} />
           </div>
           <p style={s.hint}>
-            Images · PDF · Word (.docx) · Excel (.xlsx) · CSV · Text
+            CSV / Text → AI extracts &amp; auto-fills form &nbsp;·&nbsp; Images → AI reads &amp; extracts &nbsp;·&nbsp; PDF · Word · Excel → attached to record
           </p>
         </>
       )}
 
-      {/* Non-image attachment success */}
+      {/* Non-parseable file attached */}
       {status === 'attached' && (
         <div style={s.attachedRow}>
           <span style={{ fontSize: '1.5rem' }}>{getFileIcon(fileType)}</span>
           <div style={s.attachedInfo}>
             <span style={s.attachedName}>{fileName}</span>
-            <span style={s.attachedMeta}>Attached · ready to save with incident</span>
+            <span style={s.attachedMeta}>Attached · ready to save with record</span>
           </div>
           <span style={{ color: '#4ade80', fontSize: '1.1rem' }}>✓</span>
           <button type="button" style={s.resetLink} onClick={reset}>Remove</button>
         </div>
       )}
 
-      {/* Image OCR flow */}
+      {/* Image OCR + CSV smart-input results */}
       {(status === 'loading' || status === 'success' || status === 'error') && (
         <div style={s.resultRow}>
           {preview && <img src={preview} alt="scan preview" style={s.thumb} />}
           <div style={s.resultRight}>
             {status === 'loading' && (
               <div style={s.loading}>
-                <span style={s.spinner}>⟳</span> AI is reading...
+                <span style={s.spinner}>⟳</span>
+                {IMAGE_TYPES.includes(fileType) ? ' AI is reading document…' : ' AI is extracting fields from file…'}
               </div>
             )}
             {status === 'success' && result && (
               <>
-                {fields.map(([key, val]) => (
+                {fields.slice(0, 6).map(([key, val]) => (
                   <div key={key} style={s.field}>
                     <span style={s.check}>✓</span>
                     <span style={s.fieldText}>
@@ -206,8 +263,8 @@ function formatKey(key) {
 
 const s = {
   card: {
-    background: '#1e1030',
-    border: '1px solid #5b21b6',
+    background: '#0a1628',
+    border: `1px solid ${BLUE}44`,
     borderRadius: '8px',
     padding: '0.85rem 1rem',
     marginBottom: '1rem',
@@ -221,8 +278,8 @@ const s = {
     display: 'flex',
     alignItems: 'center',
     gap: '0.65rem',
-    background: 'rgba(34,197,94,0.08)',
-    border: '1px solid rgba(34,197,94,0.25)',
+    background: `${BLUE}10`,
+    border: `1px solid ${BLUE}33`,
     borderRadius: '6px',
     padding: '0.55rem 0.75rem',
   },
@@ -236,11 +293,11 @@ const s = {
     marginBottom: '0.65rem',
   },
   headerLeft: { display: 'flex', alignItems: 'center', gap: '0.4rem' },
-  sparkles: { color: '#a855f7', fontSize: '1rem' },
-  headerText: { color: '#e9d5ff', fontSize: '0.85rem', fontWeight: 600 },
+  sparkles: { color: BLUE, fontSize: '1rem' },
+  headerText: { color: '#e0f5ff', fontSize: '0.85rem', fontWeight: 600 },
   badge: {
-    background: 'rgba(91,33,182,0.3)',
-    color: '#c084fc',
+    background: `${BLUE}22`,
+    color: BLUE,
     fontSize: '0.7rem',
     fontWeight: 700,
     padding: '2px 8px',
@@ -248,8 +305,8 @@ const s = {
     letterSpacing: '0.5px',
   },
   buttons: { display: 'flex', gap: '0.5rem' },
-  btnPurple: {
-    background: '#7c3aed',
+  btnBlue: {
+    background: BLUE,
     color: '#fff',
     border: 'none',
     borderRadius: '6px',
@@ -259,9 +316,9 @@ const s = {
     cursor: 'pointer',
   },
   btnGray: {
-    background: '#374151',
+    background: '#1e2a3a',
     color: '#d1d5db',
-    border: 'none',
+    border: `1px solid ${BLUE}33`,
     borderRadius: '6px',
     padding: '0.45rem 0.85rem',
     fontSize: '0.82rem',
@@ -275,10 +332,10 @@ const s = {
     objectFit: 'cover',
     borderRadius: '6px',
     flexShrink: 0,
-    border: '1px solid #4c1d95',
+    border: `1px solid ${BLUE}44`,
   },
   resultRight: { flex: 1, display: 'flex', flexDirection: 'column', gap: '0.3rem' },
-  loading: { color: '#c084fc', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' },
+  loading: { color: BLUE, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' },
   spinner: { display: 'inline-block', fontSize: '1.1rem' },
   field: { display: 'flex', alignItems: 'center', gap: '0.4rem' },
   check: { color: '#4ade80', fontSize: '0.85rem' },
@@ -293,13 +350,13 @@ const s = {
     alignSelf: 'flex-start',
   },
   importBtn: {
-    background: '#7c3aed',
-    color: '#fff',
+    background: YELLOW,
+    color: '#0a1628',
     border: 'none',
     borderRadius: '6px',
     padding: '0.4rem 0.9rem',
     fontSize: '0.82rem',
-    fontWeight: 600,
+    fontWeight: 700,
     cursor: 'pointer',
     marginTop: '0.2rem',
     alignSelf: 'flex-start',
@@ -307,7 +364,7 @@ const s = {
   resetLink: {
     background: 'none',
     border: 'none',
-    color: '#a78bfa',
+    color: BLUE,
     fontSize: '0.78rem',
     cursor: 'pointer',
     padding: 0,
