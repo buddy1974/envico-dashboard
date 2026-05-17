@@ -124,6 +124,11 @@ export default function Layout({ children, onLogout }) {
 
       <nav style={s.nav}>
         {role === 'ADMIN' && (
+          <NavLink to="/" end style={({ isActive }) => ({ ...s.navLink, ...s.ceoLink, ...(isActive ? s.ceoActive : {}) })}>
+            <span style={s.icon}>🏛️</span> Executive Overview
+          </NavLink>
+        )}
+        {role === 'ADMIN' && (
           <NavLink to="/ceo-office" style={({ isActive }) => ({ ...s.navLink, ...s.ceoLink, ...(isActive ? s.ceoActive : {}) })}>
             <span style={s.icon}>👔</span> CEO Office
           </NavLink>

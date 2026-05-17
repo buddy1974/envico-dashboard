@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react';
 import api from '../services/api';
 
+// Quick access — using live production credentials
 const QUICK_USERS = [
-  { name: 'Engelbert', role: 'CEO', email: 'admin@test.com', password: '12345678' },
-  { name: 'Manager', role: 'Manager', email: 'manager@test.com', password: '12345678' },
-  { name: 'Staff', role: 'Staff', email: 'staff@test.com', password: '12345678' },
+  { name: 'Engelbert', role: 'CEO',     email: 'admin@envicosl.co.uk',   password: 'Envico@Admin2024!' },
+  { name: 'Manager',  role: 'Manager',  email: 'manager@envicosl.co.uk', password: 'Envico@Mgr2024!'   },
+  { name: 'Staff',    role: 'Staff',    email: 'staff@envicosl.co.uk',   password: 'Envico@Staff2024!' },
 ];
 
 export default function Login({ onLogin }) {
@@ -24,15 +25,15 @@ export default function Login({ onLogin }) {
       localStorage.setItem('token', res.data.token);
       if (res.data.user) {
         localStorage.setItem('user', JSON.stringify(res.data.user));
-        console.log('[Login] stored user:', res.data.user);
+        // user stored
       } else {
-        console.warn('[Login] no user object in response — role-based nav may not work');
+  
       }
       onLogin();
     } catch (err) {
-      console.error('[Login] error:', err);
-      console.error('[Login] status:', err.response?.status);
-      console.error('[Login] data:', err.response?.data);
+
+
+
       const msg =
         err.response?.data?.message ||
         err.response?.data?.error ||
