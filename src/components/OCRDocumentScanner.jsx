@@ -93,6 +93,8 @@ export default function OCRDocumentScanner({ context, onImport, label }) {
           const res = await api.post('/api/ai/ocr', { imageBase64: base64, mediaType: file.type, context });
           setResult(res.data);
           setStatus('success');
+          // Auto-populate form immediately
+          onImport?.(res.data);
         } catch (err) {
           setErrorMsg(err.response?.data?.message ?? 'Failed to read image');
           setStatus('error');
@@ -120,6 +122,8 @@ export default function OCRDocumentScanner({ context, onImport, label }) {
             clean.confidence = res.data.confidence ?? 'MEDIUM';
             setResult(clean);
             setStatus('success');
+            // Auto-populate form immediately — no button click needed
+            onImport?.(clean);
           } else {
             throw new Error('No fields extracted');
           }
@@ -226,6 +230,9 @@ export default function OCRDocumentScanner({ context, onImport, label }) {
             )}
             {status === 'success' && result && (
               <>
+                <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#16a34a', marginBottom: '0.25rem' }}>
+                  ✓ Form fields auto-filled from file
+                </div>
                 {fields.slice(0, 6).map(([key, val]) => (
                   <div key={key} style={s.field}>
                     <span style={s.check}>✓</span>
@@ -239,9 +246,6 @@ export default function OCRDocumentScanner({ context, onImport, label }) {
                     {confidence} CONFIDENCE
                   </span>
                 )}
-                <button type="button" style={s.importBtn} onClick={() => onImport(result)}>
-                  Import to Form
-                </button>
               </>
             )}
             {status === 'error' && (
@@ -263,8 +267,8 @@ function formatKey(key) {
 
 const s = {
   card: {
-    background: '#0a1628',
-    border: `1px solid ${BLUE}44`,
+    background: '#F0F9FF',
+    border: `1.5px solid ${BLUE}`,
     borderRadius: '8px',
     padding: '0.85rem 1rem',
     marginBottom: '1rem',
@@ -278,13 +282,13 @@ const s = {
     display: 'flex',
     alignItems: 'center',
     gap: '0.65rem',
-    background: `${BLUE}10`,
-    border: `1px solid ${BLUE}33`,
+    background: '#fff',
+    border: `1px solid ${BLUE}55`,
     borderRadius: '6px',
     padding: '0.55rem 0.75rem',
   },
   attachedInfo: { flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 },
-  attachedName: { fontSize: '0.82rem', fontWeight: 600, color: '#d1d5db', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  attachedName: { fontSize: '0.82rem', fontWeight: 600, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   attachedMeta: { fontSize: '0.68rem', color: '#6b7280', marginTop: '1px' },
   header: {
     display: 'flex',
@@ -294,7 +298,7 @@ const s = {
   },
   headerLeft: { display: 'flex', alignItems: 'center', gap: '0.4rem' },
   sparkles: { color: BLUE, fontSize: '1rem' },
-  headerText: { color: '#e0f5ff', fontSize: '0.85rem', fontWeight: 600 },
+  headerText: { color: '#1A1A1A', fontSize: '0.85rem', fontWeight: 600 },
   badge: {
     background: `${BLUE}22`,
     color: BLUE,
@@ -316,9 +320,9 @@ const s = {
     cursor: 'pointer',
   },
   btnGray: {
-    background: '#1e2a3a',
-    color: '#d1d5db',
-    border: `1px solid ${BLUE}33`,
+    background: '#fff',
+    color: '#374151',
+    border: `1px solid #D1D5DB`,
     borderRadius: '6px',
     padding: '0.45rem 0.85rem',
     fontSize: '0.82rem',
@@ -332,14 +336,14 @@ const s = {
     objectFit: 'cover',
     borderRadius: '6px',
     flexShrink: 0,
-    border: `1px solid ${BLUE}44`,
+    border: `1px solid ${BLUE}55`,
   },
   resultRight: { flex: 1, display: 'flex', flexDirection: 'column', gap: '0.3rem' },
   loading: { color: BLUE, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' },
   spinner: { display: 'inline-block', fontSize: '1.1rem' },
   field: { display: 'flex', alignItems: 'center', gap: '0.4rem' },
-  check: { color: '#4ade80', fontSize: '0.85rem' },
-  fieldText: { color: '#d1d5db', fontSize: '0.8rem' },
+  check: { color: '#16a34a', fontSize: '0.85rem' },
+  fieldText: { color: '#1A1A1A', fontSize: '0.8rem' },
   confBadge: {
     display: 'inline-block',
     padding: '2px 8px',
@@ -351,7 +355,7 @@ const s = {
   },
   importBtn: {
     background: YELLOW,
-    color: '#0a1628',
+    color: '#1A1A1A',
     border: 'none',
     borderRadius: '6px',
     padding: '0.4rem 0.9rem',
@@ -371,5 +375,5 @@ const s = {
     textDecoration: 'underline',
     alignSelf: 'flex-start',
   },
-  errText: { color: '#f87171', fontSize: '0.82rem' },
+  errText: { color: '#dc2626', fontSize: '0.82rem' },
 };
