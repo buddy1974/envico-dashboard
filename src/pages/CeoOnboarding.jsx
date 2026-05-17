@@ -206,6 +206,7 @@ async function fetchMetrics() {
 }
 
 function StatusStrip() {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 900);
   const EMPTY = { tasks: null, referrals: null, compliance: null, training: null };
   const [values, setValues] = useState(EMPTY);
   const [refreshing, setRefreshing] = useState(false);
@@ -412,6 +413,13 @@ export default function CeoOnboarding() {
   if (getUserRole() !== 'ADMIN') return <Navigate to="/" replace />;
 
   const navigate = useNavigate();
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 900);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 900);
+    window.addEventListener('resize', check, { passive: true });
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   return (
     <div style={s.page}>
