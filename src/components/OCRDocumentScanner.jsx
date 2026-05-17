@@ -8,43 +8,91 @@ const CONTEXT_LABELS = {
   document: 'DOCUMENT',
 };
 
+// File types that can be OCR'd via AI vision
+const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+
+// All accepted file types for attachments
+const ACCEPT_ALL = [
+  'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/csv',
+  'text/plain',
+].join(',');
+
+function getFileIcon(mimeType = '') {
+  if (mimeType.startsWith('image/')) return '🖼️';
+  if (mimeType === 'application/pdf') return '📄';
+  if (mimeType.includes('word')) return '📝';
+  if (mimeType.includes('excel') || mimeType.includes('spreadsheet') || mimeType === 'text/csv') return '📊';
+  return '📎';
+}
+
 export default function OCRDocumentScanner({ context, onImport, label }) {
-  const [status, setStatus] = useState('idle'); // idle | loading | success | error
+  const [status, setStatus] = useState('idle'); // idle | loading | success | error | attached
   const [preview, setPreview] = useState(null);
+  const [fileName, setFileName] = useState('');
+  const [fileType, setFileType] = useState('');
   const [result, setResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const fileRef = useRef();
   const cameraRef = useRef();
 
-  async function processImage(file) {
+  async function processFile(file) {
     setErrorMsg('');
-    setStatus('loading');
-    setPreview(URL.createObjectURL(file));
+    setFileName(file.name);
+    setFileType(file.type);
 
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const base64 = e.target.result.split(',')[1];
-      const mediaType = file.type;
-      try {
-        const res = await api.post('/api/ai/ocr', { imageBase64: base64, mediaType, context });
-        setResult(res.data);
-        setStatus('success');
-      } catch (err) {
-        setErrorMsg(err.response?.data?.message ?? 'Failed to read document');
-        setStatus('error');
-      }
-    };
-    reader.readAsDataURL(file);
+    const isImage = IMAGE_TYPES.includes(file.type);
+
+    if (isImage) {
+      // AI OCR path for images
+      setStatus('loading');
+      setPreview(URL.createObjectURL(file));
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64 = e.target.result.split(',')[1];
+        try {
+          const res = await api.post('/api/ai/ocr', { imageBase64: base64, mediaType: file.type, context });
+          setResult(res.data);
+          setStatus('success');
+        } catch (err) {
+          setErrorMsg(err.response?.data?.message ?? 'Failed to read image');
+          setStatus('error');
+        }
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // Non-image: attach directly — notify parent with file metadata
+      setStatus('attached');
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64 = e.target.result.split(',')[1];
+        onImport?.({
+          attached_file_name: file.name,
+          attached_file_type: file.type,
+          attached_file_size: `${(file.size / 1024).toFixed(1)} KB`,
+          attached_file_base64: base64,
+          confidence: 'HIGH',
+        });
+      };
+      reader.readAsDataURL(file);
+    }
   }
 
   function handleFile(e) {
     const file = e.target.files?.[0];
-    if (file) processImage(file);
+    if (file) processFile(file);
   }
 
   function reset() {
     setStatus('idle');
     setPreview(null);
+    setFileName('');
+    setFileType('');
     setResult(null);
     setErrorMsg('');
     if (fileRef.current) fileRef.current.value = '';
@@ -60,38 +108,57 @@ export default function OCRDocumentScanner({ context, onImport, label }) {
       <div style={s.header}>
         <div style={s.headerLeft}>
           <span style={s.sparkles}>✦</span>
-          <span style={s.headerText}>{label ?? 'Scan Document with AI'}</span>
+          <span style={s.headerText}>{label ?? 'Attach or Scan Document'}</span>
         </div>
-        <span style={s.badge}>{CONTEXT_LABELS[context] ?? context.toUpperCase()}</span>
+        <span style={s.badge}>{CONTEXT_LABELS[context] ?? context?.toUpperCase()}</span>
       </div>
 
       {status === 'idle' && (
-        <div style={s.buttons}>
-          <button type="button" style={s.btnPurple} onClick={() => cameraRef.current?.click()}>
-            📷 Take Photo
-          </button>
-          <button type="button" style={s.btnGray} onClick={() => fileRef.current?.click()}>
-            ⬆ Upload File
-          </button>
-          <input
-            ref={cameraRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            style={{ display: 'none' }}
-            onChange={handleFile}
-          />
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*,application/pdf"
-            style={{ display: 'none' }}
-            onChange={handleFile}
-          />
+        <>
+          <div style={s.buttons}>
+            <button type="button" style={s.btnPurple} onClick={() => cameraRef.current?.click()}>
+              📷 Take Photo
+            </button>
+            <button type="button" style={s.btnGray} onClick={() => fileRef.current?.click()}>
+              ⬆ Attach File
+            </button>
+            <input
+              ref={cameraRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{ display: 'none' }}
+              onChange={handleFile}
+            />
+            <input
+              ref={fileRef}
+              type="file"
+              accept={ACCEPT_ALL}
+              style={{ display: 'none' }}
+              onChange={handleFile}
+            />
+          </div>
+          <p style={s.hint}>
+            Images · PDF · Word (.docx) · Excel (.xlsx) · CSV · Text
+          </p>
+        </>
+      )}
+
+      {/* Non-image attachment success */}
+      {status === 'attached' && (
+        <div style={s.attachedRow}>
+          <span style={{ fontSize: '1.5rem' }}>{getFileIcon(fileType)}</span>
+          <div style={s.attachedInfo}>
+            <span style={s.attachedName}>{fileName}</span>
+            <span style={s.attachedMeta}>Attached · ready to save with incident</span>
+          </div>
+          <span style={{ color: '#4ade80', fontSize: '1.1rem' }}>✓</span>
+          <button type="button" style={s.resetLink} onClick={reset}>Remove</button>
         </div>
       )}
 
-      {status !== 'idle' && (
+      {/* Image OCR flow */}
+      {(status === 'loading' || status === 'success' || status === 'error') && (
         <div style={s.resultRow}>
           {preview && <img src={preview} alt="scan preview" style={s.thumb} />}
           <div style={s.resultRight}>
@@ -145,6 +212,23 @@ const s = {
     padding: '0.85rem 1rem',
     marginBottom: '1rem',
   },
+  hint: {
+    margin: '0.4rem 0 0',
+    fontSize: '0.68rem',
+    color: '#6b7280',
+  },
+  attachedRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.65rem',
+    background: 'rgba(34,197,94,0.08)',
+    border: '1px solid rgba(34,197,94,0.25)',
+    borderRadius: '6px',
+    padding: '0.55rem 0.75rem',
+  },
+  attachedInfo: { flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 },
+  attachedName: { fontSize: '0.82rem', fontWeight: 600, color: '#d1d5db', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  attachedMeta: { fontSize: '0.68rem', color: '#6b7280', marginTop: '1px' },
   header: {
     display: 'flex',
     justifyContent: 'space-between',

@@ -18,7 +18,10 @@ function formatTime() {
 function getName() {
   try {
     const u = JSON.parse(localStorage.getItem('user') || '{}');
-    return u.name?.split(' ')[0] || 'Engelbert';
+    // Map known admin email to proper name in case DB hasn't refreshed yet
+    if (u.email === 'admin@envicosl.co.uk' || u.email === 'admin@test.com') return 'Engelbert';
+    const firstName = u.name?.split(' ')[0] || u.firstName || 'Engelbert';
+    return firstName;
   } catch { return 'Engelbert'; }
 }
 function daysUntil(dateStr) {
@@ -28,12 +31,17 @@ function daysUntil(dateStr) {
   return Math.ceil((d - now) / 86400000);
 }
 
+// ─── Envico brand colours ─────────────────────────────────────────────────────
+const ENVICO_BLUE   = '#00B6FF';
+const ENVICO_YELLOW = '#F5BA21';
+const ENVICO_BG     = '#E8E8EA';
+
 // ─── Priority colour map ───────────────────────────────────────────────────────
 const SEV = {
-  URGENT: { bg: 'rgba(220,38,38,0.12)', border: '#dc2626', dot: '#dc2626', label: '● URGENT' },
-  HIGH:   { bg: 'rgba(217,119,6,0.12)',  border: '#d97706', dot: '#d97706', label: '● HIGH'   },
-  MEDIUM: { bg: 'rgba(59,130,246,0.10)', border: '#3b82f6', dot: '#3b82f6', label: '● WATCH'  },
-  OK:     { bg: 'rgba(34,197,94,0.10)',  border: '#22c55e', dot: '#22c55e', label: '● OK'     },
+  URGENT: { bg: 'rgba(220,38,38,0.12)',   border: '#dc2626',    dot: '#dc2626',    label: '● URGENT' },
+  HIGH:   { bg: 'rgba(245,186,33,0.12)',  border: ENVICO_YELLOW, dot: ENVICO_YELLOW, label: '● HIGH'   },
+  MEDIUM: { bg: 'rgba(0,182,255,0.10)',   border: ENVICO_BLUE,   dot: ENVICO_BLUE,   label: '● WATCH'  },
+  OK:     { bg: 'rgba(34,197,94,0.10)',   border: '#22c55e',    dot: '#22c55e',    label: '● OK'     },
 };
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
@@ -259,10 +267,10 @@ Write in a warm, professional, executive tone. Be specific about what needs atte
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button onClick={loadAll} style={s.topBtn}>↺ Refresh</button>
-          <button onClick={() => navigate('/ceo-briefing')} style={{ ...s.topBtn, background: 'rgba(217,119,6,0.2)', border: '1px solid rgba(217,119,6,0.4)', color: '#fcd34d' }}>
+          <button onClick={() => navigate('/ceo-briefing')} style={{ ...s.topBtn, background: 'rgba(245,186,33,0.15)', border: `1px solid rgba(245,186,33,0.4)`, color: ENVICO_YELLOW }}>
             📊 CEO Briefing
           </button>
-          <button onClick={() => navigate('/assistant')} style={{ ...s.topBtn, background: 'rgba(124,58,237,0.2)', border: '1px solid rgba(124,58,237,0.4)', color: '#c4b5fd' }}>
+          <button onClick={() => navigate('/assistant')} style={{ ...s.topBtn, background: 'rgba(0,182,255,0.15)', border: `1px solid rgba(0,182,255,0.4)`, color: ENVICO_BLUE }}>
             🤖 AI Assistant
           </button>
         </div>
@@ -270,12 +278,12 @@ Write in a warm, professional, executive tone. Be specific about what needs atte
 
       {/* ── Stats row ── */}
       <div style={s.statsGrid}>
-        <StatCard icon="👥" value={stats.serviceUsers} label="Active Service Users" sub="Under care today" color="#60a5fa" onClick={() => navigate('/service-users')} />
+        <StatCard icon="👥" value={stats.serviceUsers} label="Active Service Users" sub="Under care today"          color={ENVICO_BLUE}                                               onClick={() => navigate('/service-users')} />
         <StatCard icon="🚨" value={openInc.length}     label="Open Incidents"       sub={`${stats.highIncidents ?? 0} high priority`} color={openInc.length > 0 ? '#f87171' : '#4ade80'} onClick={() => navigate('/incidents')} />
-        <StatCard icon="🛡️" value={stats.safeguarding} label="Safeguarding Cases"   sub="Active investigations" color={stats.safeguarding > 0 ? '#f87171' : '#4ade80'} onClick={() => navigate('/incidents')} />
-        <StatCard icon="💊" value={stats.activeMeds}   label="Medications Managed" sub="Active prescriptions" color="#a78bfa" onClick={() => navigate('/medications')} />
-        <StatCard icon="📋" value={stats.carePlans}    label="Care Plans"          sub="Person-centred goals" color="#34d399" onClick={() => navigate('/care-plans')} />
-        <StatCard icon="⏳" value={medReviews.length}  label="Med Reviews Due"     sub="Within 30 days" color={medReviews.length > 0 ? '#fbbf24' : '#4ade80'} onClick={() => navigate('/medications')} />
+        <StatCard icon="🛡️" value={stats.safeguarding} label="Safeguarding Cases"   sub="Active investigations"   color={stats.safeguarding > 0 ? '#f87171' : '#4ade80'}               onClick={() => navigate('/incidents')} />
+        <StatCard icon="💊" value={stats.activeMeds}   label="Medications Managed"  sub="Active prescriptions"   color={ENVICO_YELLOW}                                                 onClick={() => navigate('/medications')} />
+        <StatCard icon="📋" value={stats.carePlans}    label="Care Plans"           sub="Person-centred goals"   color="#4ade80"                                                       onClick={() => navigate('/care-plans')} />
+        <StatCard icon="⏳" value={medReviews.length}  label="Med Reviews Due"      sub="Within 30 days"         color={medReviews.length > 0 ? ENVICO_YELLOW : '#4ade80'}             onClick={() => navigate('/medications')} />
       </div>
 
       {/* ── Main two-column layout ── */}
@@ -287,8 +295,8 @@ Write in a warm, professional, executive tone. Be specific about what needs atte
           {/* AI Briefing */}
           <div style={s.briefingBox}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', flexShrink: 0, boxShadow: '0 0 6px #22c55e' }} />
-              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#22c55e', textTransform: 'uppercase', letterSpacing: '0.6px' }}>AI Executive Briefing</span>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: ENVICO_BLUE, flexShrink: 0, boxShadow: `0 0 6px ${ENVICO_BLUE}` }} />
+              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: ENVICO_BLUE, textTransform: 'uppercase', letterSpacing: '0.6px' }}>AI Executive Briefing</span>
               <span style={{ fontSize: '0.68rem', color: '#64748b', marginLeft: 'auto' }}>claude-haiku · {briefingTs || '—'}</span>
               <button onClick={fetchBriefing} disabled={briefingLoading} style={s.rebriefBtn}>
                 {briefingLoading ? '…' : '↺'}
@@ -472,6 +480,8 @@ const s = {
     fontWeight: 700,
     color: '#f1f5f9',
     letterSpacing: '-0.3px',
+    borderLeft: `4px solid ${ENVICO_YELLOW}`,
+    paddingLeft: '0.75rem',
   },
   date: {
     margin: '4px 0 0',
@@ -502,8 +512,8 @@ const s = {
     flexWrap: 'wrap',
   },
   briefingBox: {
-    background: 'rgba(255,255,255,0.03)',
-    border: '1px solid rgba(34,197,94,0.25)',
+    background: 'rgba(0,182,255,0.04)',
+    border: `1px solid rgba(0,182,255,0.2)`,
     borderRadius: '10px',
     padding: '1rem 1.25rem',
     marginBottom: '1.5rem',
@@ -519,9 +529,9 @@ const s = {
   },
   viewAllBtn: {
     background: 'transparent',
-    border: '1px solid rgba(255,255,255,0.08)',
+    border: '1px solid rgba(0,182,255,0.2)',
     borderRadius: '6px',
-    color: '#60a5fa',
+    color: ENVICO_BLUE,
     fontSize: '0.75rem',
     padding: '0.4rem 0.75rem',
     cursor: 'pointer',
