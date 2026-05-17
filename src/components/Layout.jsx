@@ -158,9 +158,7 @@ export default function Layout({ children, onLogout }) {
           <NavLink to="/ceo-onboarding" style={({ isActive }) => ({ ...s.navLink, ...s.overviewLink, ...(isActive ? s.overviewActive : {}) })}>
             <span style={s.icon}>🗺️</span> System Overview
           </NavLink>
-          <NavLink to="/agents" style={({ isActive }) => ({ ...s.navLink, ...s.agentLink, ...(isActive ? s.agentActive : {}) })}>
-            <span style={s.icon}>⚡</span> Agents
-          </NavLink>
+          {/* Agents — disabled: no backend route */}
         </>
       )}
 
